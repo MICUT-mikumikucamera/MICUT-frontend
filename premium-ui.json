@@ -1,0 +1,10 @@
+{
+  "profile": "product-admin",
+  "sourceRoots": ["lib"],
+  "locale": "ko-KR",
+  "canonicalMap": "UX-CONTRACT.md",
+  "requiredCapabilities": ["Toast"],
+  "requiredCommands": ["analyze", "test", "build"],
+  "commands": {"analyze": "flutter analyze", "test": "flutter test", "build": "flutter build web --no-wasm-dry-run"},
+  "evidence": {"failurePaths": "test/api_test.dart"}
+}
