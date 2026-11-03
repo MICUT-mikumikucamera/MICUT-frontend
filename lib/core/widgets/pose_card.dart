@@ -59,10 +59,10 @@ class PoseCard extends StatelessWidget {
                   else
                     const _Unknown(),
                   if (isNew)
-                    Positioned(
+                    const Positioned(
                       top: Spacing.sm,
                       right: Spacing.sm,
-                      child: const _Chip(label: 'NEW', filled: true),
+                      child: _Chip(label: 'NEW', filled: true),
                     ),
                 ],
               ),

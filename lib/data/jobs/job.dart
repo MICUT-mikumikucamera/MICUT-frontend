@@ -1,5 +1,6 @@
 /// 백엔드 `contracts/` 와 1:1로 맞춘 모델.
 /// 필드를 바꾸면 MICUT-backend/contracts/examples/*.json 도 같이 바꿔야 한다.
+library;
 
 enum JobStatus {
   pending,
