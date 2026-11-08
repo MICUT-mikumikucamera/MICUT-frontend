@@ -26,10 +26,12 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: flutter analyze
+      - run: flutter test
       - run: >
-          flutter build web --release --no-wasm-dry-run
+          flutter build web --release -t lib/browser_preview.dart --no-wasm-dry-run
           --base-href /MICUT-frontend/
-          --dart-define=API_BASE_URL=https://micut-backend.onrender.com
+          --dart-define=MICUT_REAL_API=true
+          --dart-define=MICUT_API_URL=https://micut-backend.onrender.com
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build/web

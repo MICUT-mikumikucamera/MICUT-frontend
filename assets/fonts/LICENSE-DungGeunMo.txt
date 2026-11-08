@@ -1,0 +1,5 @@
+DungGeunMo (둥근모꼴+Fixedsys) 1.3
+Source: https://cactus.tistory.com/193
+Downloaded from the TTF archive linked by the font author, 2026-11-06.
+The author declares this font public domain, allowing redistribution, modification and commercial use.
+Original glyph credits: Jungtae Kim (Dunggeunmo), Darien Gavin Valentine (Fixedsys Excelsior).

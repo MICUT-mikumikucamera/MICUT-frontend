@@ -15,4 +15,4 @@ No login. Asynchronous job lifecycle, retry/discard, result image retrieval. Ser
 ## Users
 People taking a photo with Miku. Further audience segmentation is undecided.
 ## Brand Commitments
-Preserve the supplied grayscale Figma composition and Korean labels. No new brand palette or invented pose art.
+Use the downloaded Figma source assets and tokens with Korean labels. User-requested departures are documented in README.md; no invented pose art.

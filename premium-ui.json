@@ -5,6 +5,6 @@
   "canonicalMap": "UX-CONTRACT.md",
   "requiredCapabilities": ["Toast"],
   "requiredCommands": ["analyze", "test", "build"],
-  "commands": {"analyze": "flutter analyze", "test": "flutter test", "build": "flutter build web --no-wasm-dry-run"},
-  "evidence": {"failurePaths": "test/api_test.dart"}
+  "commands": {"analyze": "flutter analyze", "test": "flutter test", "build": "flutter build web -t lib/browser_preview.dart --no-wasm-dry-run"},
+  "evidence": {"failurePaths": "test/camera_controls_test.dart"}
 }
