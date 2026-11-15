@@ -41,16 +41,24 @@ class JobResult {
     required this.imageUrl,
     this.tags = const [],
     this.cardIds = const [],
+    this.newCardIds = const [],
   });
 
   final String imageUrl;
   final List<String> tags;
+
+  /// 이 사진으로 얻은 카드 id. 명세 v0.3 부터 채워진다 (지금은 1장).
   final List<String> cardIds;
+
+  /// [cardIds] 중 이 기기가 **처음** 얻은 카드. 비어 있지 않으면 신규 획득 팝업을 띄운다.
+  /// 접수 때 `X-Device-Id` 를 안 보냈으면 항상 비어 있다.
+  final List<String> newCardIds;
 
   factory JobResult.fromJson(Map<String, dynamic> j) => JobResult(
         imageUrl: j['image_url'] as String,
         tags: (j['tags'] as List?)?.cast<String>() ?? const [],
         cardIds: (j['card_ids'] as List?)?.cast<String>() ?? const [],
+        newCardIds: (j['new_card_ids'] as List?)?.cast<String>() ?? const [],
       );
 }
 

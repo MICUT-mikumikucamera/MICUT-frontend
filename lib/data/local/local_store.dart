@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,7 @@ class GalleryItem {
     required this.id,
     required this.path,
     required this.createdAt,
+    this.jobId,
     this.cardIds = const [],
     this.savedToAlbum = false,
   });
@@ -20,6 +22,10 @@ class GalleryItem {
   final String id;
   final String path;
   final DateTime createdAt;
+
+  /// 이 사진을 만든 서버 작업 id. 컬렉션 응답의 `photos[].job_id` 와 맞춰
+  /// 카드 상세에서 사진을 찾을 때 쓴다. 예전에 저장한 사진은 null 이다.
+  final String? jobId;
   final List<String> cardIds;
   final bool savedToAlbum;
 
@@ -27,6 +33,7 @@ class GalleryItem {
         id: id,
         path: path,
         createdAt: createdAt,
+        jobId: jobId,
         cardIds: cardIds,
         savedToAlbum: savedToAlbum ?? this.savedToAlbum,
       );
@@ -35,6 +42,7 @@ class GalleryItem {
         'id': id,
         'path': path,
         'created_at': createdAt.toIso8601String(),
+        if (jobId != null) 'job_id': jobId,
         'card_ids': cardIds,
         'saved_to_album': savedToAlbum,
       };
@@ -43,6 +51,7 @@ class GalleryItem {
         id: j['id'] as String,
         path: j['path'] as String,
         createdAt: DateTime.parse(j['created_at'] as String),
+        jobId: j['job_id'] as String?,
         cardIds: (j['card_ids'] as List?)?.cast<String>() ?? const [],
         savedToAlbum: j['saved_to_album'] as bool? ?? false,
       );
@@ -79,17 +88,21 @@ class LocalStore {
 
   /// 결과 이미지(로컬 파일 경로 또는 URL)를 앱 폴더로 복사해 갤러리에 추가.
   Future<GalleryItem> addFromFile(File src,
-          {List<String> cardIds = const []}) async =>
-      addFromBytes(await src.readAsBytes(), cardIds: cardIds);
+          {String? jobId, List<String> cardIds = const []}) async =>
+      addFromBytes(await src.readAsBytes(), jobId: jobId, cardIds: cardIds);
 
   Future<GalleryItem> addFromBytes(Uint8List bytes,
-      {List<String> cardIds = const []}) async {
+      {String? jobId, List<String> cardIds = const []}) async {
     if (bytes.isEmpty) throw ArgumentError('Photo is empty');
     final id = DateTime.now().microsecondsSinceEpoch.toString();
     final dst = File(p.join((await _dir()).path, '$id.jpg'));
     await dst.writeAsBytes(bytes, flush: true);
     final item = GalleryItem(
-        id: id, path: dst.path, createdAt: DateTime.now(), cardIds: cardIds);
+        id: id,
+        path: dst.path,
+        createdAt: DateTime.now(),
+        jobId: jobId,
+        cardIds: cardIds);
     final items = await loadGallery();
     await _saveGallery([item, ...items]);
     return item;
@@ -130,6 +143,28 @@ class LocalStore {
     await temporary.writeAsString(jsonEncode(values), flush: true);
     await temporary.rename(file.path);
   }
+
+  /// 기기 구분용 ID. 명세 v0.3 의 `X-Device-Id` 헤더에 쓴다.
+  ///
+  /// 처음 부를 때 만들어 파일에 저장하고 그 뒤로는 같은 값을 돌려준다.
+  /// 앱을 지우면 새로 만들어지므로 컬렉션도 처음부터 시작한다.
+  /// 형식: 영문 소문자·숫자 32자 (명세는 1~64자, 영문·숫자·`-`·`_` 허용).
+  Future<String> deviceId() async {
+    final cached = _deviceId;
+    if (cached != null) return cached;
+    final file = File(p.join((await _dir()).path, 'device-id.txt'));
+    if (await file.exists()) {
+      final saved = (await file.readAsString()).trim();
+      if (saved.isNotEmpty) return _deviceId = saved;
+    }
+    final random = Random.secure();
+    final created = List.generate(
+        32, (_) => '0123456789abcdef'[random.nextInt(16)]).join();
+    await file.writeAsString(created, flush: true);
+    return _deviceId = created;
+  }
+
+  String? _deviceId;
 
   /// 수집한 카드 ID 집합 (갤러리 항목의 card_ids 합집합).
   Future<Set<String>> collectedCardIds() async {

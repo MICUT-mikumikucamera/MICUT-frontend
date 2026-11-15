@@ -15,6 +15,9 @@ import 'package:micut/core/widgets/photo_placeholder.dart';
 import 'package:micut/core/widgets/micut_tab_bar.dart';
 import 'package:micut/core/widgets/new_collection_overlay.dart';
 import 'package:micut/data/local/local_store.dart';
+import 'package:micut/data/collection/collection.dart';
+import 'package:micut/data/collection/providers.dart';
+import 'package:micut/data/local/poses.dart';
 import 'package:micut/features/capture/camera_screen.dart';
 import 'package:micut/features/capture/capture_guide_screen.dart';
 import 'package:micut/features/capture/capture_view.dart';
@@ -32,6 +35,27 @@ class ReferenceCamera extends TestCamera {
   @override
   Widget buildPreview() => Image.memory(photo, fit: BoxFit.cover);
 }
+
+/// 서버 컬렉션 응답 대역. 실제 호출 없이 화면만 그린다.
+CollectionSummary fakeCollection({
+  Map<String, List<String>> photos = const {},
+}) =>
+    CollectionSummary(
+      acquiredCount: photos.keys.where((id) => photos[id]!.isNotEmpty).length,
+      total: kPoses.length,
+      cards: [
+        for (final pose in kPoses)
+          CollectionCard(
+            id: pose.id,
+            no: pose.no,
+            name: pose.name,
+            photos: [
+              for (final jobId in photos[pose.id] ?? const <String>[])
+                CardPhoto(jobId: jobId, acquiredAt: DateTime(2026, 11, 6)),
+            ],
+          ),
+      ],
+    );
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -68,7 +92,8 @@ void main() {
             id: '$i',
             path: result,
             createdAt: DateTime(2026, 11, 6),
-            cardIds: ['001']));
+            jobId: 'job-$i',
+            cardIds: ['v_sign']));
     Widget flow(String message,
             {bool busy = false,
             bool saved = false,
@@ -137,8 +162,8 @@ void main() {
       '39-gallery-delete': const GalleryScreen(),
       '40-photo-detail': const PhotoDetailScreen(id: '0'),
       '41-collection': const CollectionScreen(),
-      '42-card-detail': const CardDetailScreen(id: '001'),
-      '43-story': const CardDetailScreen(id: '001', story: true),
+      '42-card-detail': const CardDetailScreen(id: 'v_sign'),
+      '43-story': const CardDetailScreen(id: 'v_sign', story: true),
       '44-settings': const SettingsScreen(),
     };
     for (final entry in states.entries) {
@@ -162,8 +187,11 @@ void main() {
           overrides: [
             galleryProvider.overrideWith(
                 (ref) async => entry.key.contains('empty') ? [] : photos),
-            collectedCardIdsProvider.overrideWith((ref) async => {'001'}),
-            cardMemoProvider('001').overrideWith((ref) async => ''),
+            collectionProvider.overrideWith((ref) async => fakeCollection(
+                photos: {
+                  'v_sign': [for (var i = 0; i < 10; i++) 'job-$i']
+                })),
+            cardMemoProvider('v_sign').overrideWith((ref) async => ''),
           ],
           child: MaterialApp(
               theme: buildMiCutTheme(),

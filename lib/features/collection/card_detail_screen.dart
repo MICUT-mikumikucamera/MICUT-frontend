@@ -9,8 +9,9 @@ import '../../core/theme/colors.dart';
 import '../../core/theme/spacing.dart';
 import '../../core/theme/typography.dart';
 import '../../core/widgets/photo_placeholder.dart';
+import '../../data/collection/collection.dart';
+import '../../data/collection/providers.dart';
 import '../../data/local/local_store.dart';
-import '../../data/local/poses.dart';
 
 /// Figma card detail and full-photo story presentation share the same real data.
 class CardDetailScreen extends ConsumerStatefulWidget {
@@ -46,31 +47,42 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
     super.dispose();
   }
 
-  Future<void> _share(GalleryItem photo, String name) async {
+  Future<void> _share(String path, String name) async {
     if (_sharing) return;
     setState(() => _sharing = true);
-    await sharePhoto(context, photo.path, text: name);
+    await sharePhoto(context, path, text: name);
     if (mounted) setState(() => _sharing = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final pose = kPoses.where((p) => p.id == widget.id).firstOrNull;
+    final collection = ref.watch(collectionProvider);
     final gallery = ref.watch(galleryProvider);
     final memo = ref.watch(cardMemoProvider(widget.id));
-    final photos = (gallery.valueOrNull ?? const <GalleryItem>[])
-        .where((g) => g.cardIds.contains(widget.id))
-        .toList();
+    final pose = collection.valueOrNull?.card(widget.id);
+    final items = gallery.valueOrNull ?? const <GalleryItem>[];
+    // 서버가 준 사진 순서를 따르고, 이미지 파일은 job_id 로 기기에서 찾는다.
+    final photos = [
+      for (final photo in pose?.photos ?? const <CardPhoto>[])
+        (
+          path: items
+              .where((g) => g.jobId != null && g.jobId == photo.jobId)
+              .firstOrNull
+              ?.path,
+          acquiredAt: photo.acquiredAt,
+        )
+    ];
     final current =
         photos.isEmpty ? null : photos[_index.clamp(0, photos.length - 1)];
-    if (pose == null) {
+    final currentPath = current?.path;
+    if (pose == null && !collection.isLoading) {
       return Scaffold(
           appBar: AppBar(
         leading: const MiCutBackButton(),
         leadingWidth: 64,
       ));
     }
-    if (gallery.isLoading) {
+    if (collection.isLoading || gallery.isLoading) {
       return Scaffold(
           appBar: AppBar(
             leading: const MiCutBackButton(),
@@ -78,7 +90,7 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
           ),
           body: const Center(child: CircularProgressIndicator()));
     }
-    if (gallery.hasError) {
+    if (pose == null || collection.hasError || gallery.hasError) {
       return Scaffold(
           appBar: AppBar(
         leading: const MiCutBackButton(),
@@ -111,9 +123,9 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
                   color: inverse
                       ? MiCutColors.iconInverse
                       : MiCutColors.iconDefault,
-                  onPressed: current == null || _sharing
+                  onPressed: currentPath == null || _sharing
                       ? null
-                      : () => _share(current, pose.name)),
+                      : () => _share(currentPath, pose.name)),
             ]);
     Widget photoPages({bool fullscreen = false}) => PageView.builder(
         controller: _pages,
@@ -216,7 +228,7 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
                                     child: Text(
                                         current == null
                                             ? '-'
-                                            : _storyDate(current.createdAt),
+                                            : _storyDate(current.acquiredAt),
                                         style: MiCutText.cardBody.copyWith(
                                             color: MiCutColors.textInverse))),
                               ])),
@@ -256,9 +268,9 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
                                 const SizedBox(width: Spacing.md),
                                 IconButton.filled(
                                     tooltip: '공유',
-                                    onPressed: current == null || _sharing
+                                    onPressed: currentPath == null || _sharing
                                         ? null
-                                        : () => _share(current, pose.name),
+                                        : () => _share(currentPath, pose.name),
                                     style: IconButton.styleFrom(
                                         backgroundColor: MiCutColors.black
                                             .withValues(alpha: .45)),
@@ -298,7 +310,7 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
                             height: 25,
                             child: Text('날짜', style: MiCutText.cardLabel)),
                         const SizedBox(height: Spacing.md),
-                        Text(current == null ? '-' : _fmt(current.createdAt),
+                        Text(current == null ? '-' : _fmt(current.acquiredAt),
                             style: MiCutText.cardBody),
                         const SizedBox(height: Spacing.xl),
                         SizedBox(
