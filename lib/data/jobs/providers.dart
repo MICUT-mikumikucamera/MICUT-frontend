@@ -13,8 +13,8 @@ import 'job_repository.dart';
 /// 비어 있으면 서버 없이 도는 [FakeJobRepository] 를 쓴다.
 /// `MICUT_REAL_API` / `MICUT_API_URL` 은 예전 이름이라 당분간 같이 받는다.
 const String _apiBaseUrl = String.fromEnvironment('API_BASE_URL');
-const String _legacyUrl =
-    String.fromEnvironment('MICUT_API_URL', defaultValue: 'http://10.0.2.2:8000');
+const String _legacyUrl = String.fromEnvironment('MICUT_API_URL',
+    defaultValue: 'http://10.0.2.2:8000');
 const bool _legacyOn = bool.fromEnvironment('MICUT_REAL_API');
 
 const String kApiBaseUrl =

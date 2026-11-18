@@ -6,6 +6,7 @@ import '../../core/theme/spacing.dart';
 import '../../core/theme/typography.dart';
 import '../../core/widgets/dark_world.dart';
 import '../../core/widgets/micut_button.dart';
+import '../../core/widgets/miku_illust.dart';
 
 class CaptureGuideScreen extends StatelessWidget {
   const CaptureGuideScreen({super.key});
@@ -42,6 +43,12 @@ class CaptureGuideScreen extends StatelessWidget {
                                       border: Border.all(
                                           color: MiCutColors.cyan100,
                                           width: 1.5))),
+                              // Figma 177:6655 — 박스(200×230) 안 (44, 59)에 111px.
+                              const Positioned(
+                                  left: 30 + 44,
+                                  top: 59,
+                                  child: MikuIllustImage(MikuIllust.empty,
+                                      size: 111)),
                               Positioned(
                                   left: 0,
                                   right: 0,

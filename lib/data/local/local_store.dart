@@ -158,8 +158,8 @@ class LocalStore {
       if (saved.isNotEmpty) return _deviceId = saved;
     }
     final random = Random.secure();
-    final created = List.generate(
-        32, (_) => '0123456789abcdef'[random.nextInt(16)]).join();
+    final created =
+        List.generate(32, (_) => '0123456789abcdef'[random.nextInt(16)]).join();
     await file.writeAsString(created, flush: true);
     return _deviceId = created;
   }
