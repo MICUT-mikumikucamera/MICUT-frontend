@@ -3,13 +3,71 @@
 library;
 
 enum JobStatus {
-  pending,
-  processing,
-  done,
-  failed;
+  pending('pending'),
+
+  /// AI가 사람을 1명 이상 찾아서 사용자 선택을 기다리는 중 (계약 2026-11-18).
+  /// [Job.people] 이 채워져 있고, `POST /jobs/{id}/person` 으로 넘어간다.
+  awaitingPerson('awaiting_person'),
+  processing('processing'),
+  done('done'),
+  failed('failed');
+
+  const JobStatus(this.wire);
+
+  /// 서버가 쓰는 문자열.
+  final String wire;
 
   static JobStatus parse(String s) =>
-      JobStatus.values.firstWhere((e) => e.name == s);
+      JobStatus.values.firstWhere((e) => e.wire == s);
+}
+
+/// AI people.json 의 사람 한 명.
+class DetectedPerson {
+  const DetectedPerson({
+    required this.personId,
+    required this.bboxNorm,
+    required this.eligible,
+    this.reason,
+  });
+
+  final String personId;
+
+  /// [왼쪽, 위, 오른쪽, 아래]. **접수 때 보낸 원본 사진** 크기 대비 0~1.
+  final List<double> bboxNorm;
+
+  /// false 면 고를 수 없다 (예: `too_small`).
+  final bool eligible;
+  final String? reason;
+
+  factory DetectedPerson.fromJson(Map<String, dynamic> j) => DetectedPerson(
+        personId: j['person_id'] as String,
+        bboxNorm: (j['bbox_norm'] as List)
+            .map((v) => (v as num).toDouble())
+            .toList(growable: false),
+        eligible: j['eligible'] as bool,
+        reason: j['reason'] as String?,
+      );
+}
+
+/// `GET /jobs/{id}` 의 `people` — AI people.json 을 그대로 전달받는다.
+class PeopleDetection {
+  const PeopleDetection({
+    required this.status,
+    this.recommendedPersonId,
+    this.people = const [],
+  });
+
+  final String status;
+  final String? recommendedPersonId;
+  final List<DetectedPerson> people;
+
+  factory PeopleDetection.fromJson(Map<String, dynamic> j) => PeopleDetection(
+        status: j['status'] as String,
+        recommendedPersonId: j['recommended_person_id'] as String?,
+        people: ((j['people'] as List?) ?? const [])
+            .map((p) => DetectedPerson.fromJson(p as Map<String, dynamic>))
+            .toList(growable: false),
+      );
 }
 
 /// error_codes.json 의 fe_action
@@ -47,7 +105,8 @@ class JobResult {
   final String imageUrl;
   final List<String> tags;
 
-  /// 이 사진으로 얻은 카드 id. 명세 v0.3 부터 채워진다 (지금은 1장).
+  /// 이 사진으로 얻은 카드 id. AI가 고른 포즈로 정해진다.
+  /// 컬렉션에 없는 포즈(곡 포즈 MV*, 사람 따라하기)면 빈 배열 — 카드 없음.
   final List<String> cardIds;
 
   /// [cardIds] 중 이 기기가 **처음** 얻은 카드. 비어 있지 않으면 신규 획득 팝업을 띄운다.
@@ -121,6 +180,7 @@ class Job {
     required this.attempt,
     this.result,
     this.error,
+    this.people,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -132,6 +192,9 @@ class Job {
   final int attempt;
   final JobResult? result;
   final JobError? error;
+
+  /// [JobStatus.awaitingPerson] 일 때 AI가 찾은 사람들.
+  final PeopleDetection? people;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -149,6 +212,9 @@ class Job {
         error: j['error'] == null
             ? null
             : JobError.fromJson(j['error'] as Map<String, dynamic>),
+        people: j['people'] == null
+            ? null
+            : PeopleDetection.fromJson(j['people'] as Map<String, dynamic>),
         createdAt: DateTime.parse(j['created_at'] as String),
         updatedAt: DateTime.parse(j['updated_at'] as String),
       );
@@ -158,6 +224,7 @@ class Job {
     int? attempt,
     JobResult? result,
     JobError? error,
+    PeopleDetection? people,
     bool clearResult = false,
     bool clearError = false,
     DateTime? updatedAt,
@@ -170,9 +237,21 @@ class Job {
         attempt: attempt ?? this.attempt,
         result: clearResult ? null : (result ?? this.result),
         error: clearError ? null : (error ?? this.error),
+        people: people ?? this.people,
         createdAt: createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
       );
+}
+
+/// 사람 선택 요청이 거절됨. 409 = 선택할 수 없는 상태(`PERSON_SELECT_NOT_ALLOWED`),
+/// 422 = 없는 person_id 이거나 eligible=false (`INVALID_REQUEST`).
+class PersonSelectException implements Exception {
+  const PersonSelectException(this.statusCode, [this.code]);
+  final int statusCode;
+  final String? code;
+  bool get notAllowed => statusCode == 409;
+  @override
+  String toString() => 'PersonSelectException($statusCode, $code)';
 }
 
 /// 업로드 자체가 실패하면 job 없이 이 예외를 던진다 (status.json 규칙).

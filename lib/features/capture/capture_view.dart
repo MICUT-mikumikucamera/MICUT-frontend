@@ -13,6 +13,10 @@ import '../../core/widgets/photo_placeholder.dart';
 final capturePhotoProvider =
     StateProvider.family<String?, String>((ref, id) => null);
 
+/// 접수 때 보낸 원본 전체(크롭 전). 사람 선택 박스(`bbox_norm`)가 이 기준이다.
+final captureOriginalProvider =
+    StateProvider.family<String?, String>((ref, id) => null);
+
 class CaptureView extends StatelessWidget {
   const CaptureView(
       {super.key,
@@ -22,6 +26,7 @@ class CaptureView extends StatelessWidget {
       required this.onClose,
       this.processing = false,
       this.actionNotice,
+      this.photoOverlay,
       this.topActions = const []});
   final String? photoPath;
   final String message;
@@ -30,6 +35,9 @@ class CaptureView extends StatelessWidget {
   final bool processing;
   final List<Widget> topActions;
   final String? actionNotice;
+
+  /// 사진 위에 겹쳐 그릴 위젯 (사람 선택 박스 등). 사진 영역 전체를 채운다.
+  final Widget? photoOverlay;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -54,6 +62,7 @@ class CaptureView extends StatelessWidget {
                         radius: 0,
                         fit: BoxFit.contain,
                         width: double.infinity),
+                    if (photoOverlay != null) photoOverlay!,
                     if (processing) ...[
                       const ColoredBox(color: MiCutColors.dim),
                       const Center(child: MiCutLoading()),

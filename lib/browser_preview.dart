@@ -12,7 +12,8 @@ void main() {
   runApp(ProviderScope(overrides: [
     localStoreProvider.overrideWithValue(BrowserPreviewStore()),
     if (!kUseRealApi)
-      jobRepositoryProvider.overrideWithValue(FakeJobRepository()),
+      jobRepositoryProvider
+          .overrideWithValue(FakeJobRepository(detectPeople: true)),
   ], child: const MiCutApp()));
 }
 

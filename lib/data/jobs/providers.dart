@@ -22,7 +22,8 @@ const String kApiBaseUrl =
 const bool kUseRealApi = kApiBaseUrl != '';
 
 final jobRepositoryProvider = Provider<JobRepository>((ref) {
-  if (!kUseRealApi) return FakeJobRepository(scenario: FakeScenario.random);
+  if (!kUseRealApi)
+    return FakeJobRepository(scenario: FakeScenario.random, detectPeople: true);
   return ApiJobRepository(
     baseUrl: kApiBaseUrl,
     deviceId: ref.watch(localStoreProvider).deviceId,

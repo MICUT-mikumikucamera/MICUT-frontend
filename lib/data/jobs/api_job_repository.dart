@@ -11,6 +11,7 @@ import 'job_repository.dart';
 ///
 ///   POST   /api/v1/jobs                  multipart(photo, w, h, rotation, fx?, crop JSON)  → Job
 ///   GET    /api/v1/jobs/{job_id}                                           → Job
+///   POST   /api/v1/jobs/{job_id}/person    {mode, person_id}               → Job (계약 2026-11-18)
 ///   POST   /api/v1/jobs/{job_id}/retry                                     → Job
 ///   POST   /api/v1/jobs/{job_id}/discard                                   → 204
 ///
@@ -73,6 +74,28 @@ class ApiJobRepository extends JobRepository {
   @override
   Future<Job> retry(String jobId) async {
     final res = await _client.post(_u('/api/v1/jobs/$jobId/retry'));
+    _check(res);
+    return Job.fromJson(_json(res));
+  }
+
+  @override
+  Future<Job> selectPerson(String jobId, {String? personId}) async {
+    final res = await _client.post(_u('/api/v1/jobs/$jobId/person'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'mode': personId == null ? 'solo' : 'human',
+          'person_id': personId,
+        }));
+    if (res.statusCode == 409 || res.statusCode == 422) {
+      String? code;
+      try {
+        code =
+            (_json(res)['error'] as Map<String, dynamic>?)?['code'] as String?;
+      } catch (_) {
+        // 본문이 JSON 이 아니어도 상태 코드만으로 처리할 수 있다.
+      }
+      throw PersonSelectException(res.statusCode, code);
+    }
     _check(res);
     return Job.fromJson(_json(res));
   }

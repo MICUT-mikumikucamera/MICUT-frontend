@@ -14,14 +14,33 @@ import 'job_repository.dart';
 ///  - [FakeScenario.retryable]: AI_TIMEOUT (재시도 가능)
 ///  - [FakeScenario.retake]   : PERSON_NOT_FOUND (다시 찍기)
 ///  - [FakeScenario.random]   : 위 셋 중 랜덤
+///
+/// [detectPeople] 가 true 면 접수 후 awaiting_person 으로 멈추고 사람 2명
+/// (고를 수 있는 사람 1, 너무 작은 사람 1)을 돌려준다. 계약 2026-11-18 예시 그대로.
 class FakeJobRepository extends JobRepository {
   FakeJobRepository({
     this.scenario = FakeScenario.success,
     this.processingDelay = const Duration(seconds: 3),
+    this.detectPeople = false,
   });
 
   final FakeScenario scenario;
   final Duration processingDelay;
+  final bool detectPeople;
+
+  static const examplePeople = PeopleDetection(
+    status: 'ok',
+    recommendedPersonId: 'p0',
+    people: [
+      DetectedPerson(
+          personId: 'p0', bboxNorm: [0.10, 0.15, 0.45, 0.80], eligible: true),
+      DetectedPerson(
+          personId: 'p1',
+          bboxNorm: [0.75, 0.20, 0.82, 0.30],
+          eligible: false,
+          reason: 'too_small'),
+    ],
+  );
 
   final _jobs = <String, Job>{};
   final _photos = <String, String>{};
@@ -45,8 +64,37 @@ class FakeJobRepository extends JobRepository {
     final bytes = await photo.readAsBytes();
     _photos[id] = photoDataUri(
         capture.crop == null ? bytes : applyCaptureCrop(bytes, capture.crop!));
-    _schedule(id);
+    if (detectPeople) {
+      Future<void>.delayed(const Duration(milliseconds: 800), () {
+        final j = _jobs[id];
+        if (j == null) return;
+        _jobs[id] = j.copyWith(
+            status: JobStatus.awaitingPerson,
+            people: examplePeople,
+            updatedAt: DateTime.now());
+      });
+    } else {
+      _schedule(id);
+    }
     return job;
+  }
+
+  @override
+  Future<Job> selectPerson(String jobId, {String? personId}) async {
+    final job = await getJob(jobId);
+    if (job.status != JobStatus.awaitingPerson) {
+      throw const PersonSelectException(409, 'PERSON_SELECT_NOT_ALLOWED');
+    }
+    if (personId != null &&
+        !(job.people?.people.any((p) => p.personId == personId && p.eligible) ??
+            false)) {
+      throw const PersonSelectException(422, 'INVALID_REQUEST');
+    }
+    final next =
+        job.copyWith(status: JobStatus.processing, updatedAt: DateTime.now());
+    _jobs[jobId] = next;
+    _schedule(jobId, alreadyProcessing: true);
+    return next;
   }
 
   @override
@@ -97,13 +145,16 @@ class FakeJobRepository extends JobRepository {
     return _photos[id] ?? path;
   }
 
-  void _schedule(String id, {bool forceSuccess = false}) {
-    Future<void>.delayed(const Duration(milliseconds: 800), () {
-      final j = _jobs[id];
-      if (j == null) return;
-      _jobs[id] =
-          j.copyWith(status: JobStatus.processing, updatedAt: DateTime.now());
-    });
+  void _schedule(String id,
+      {bool forceSuccess = false, bool alreadyProcessing = false}) {
+    if (!alreadyProcessing) {
+      Future<void>.delayed(const Duration(milliseconds: 800), () {
+        final j = _jobs[id];
+        if (j == null) return;
+        _jobs[id] =
+            j.copyWith(status: JobStatus.processing, updatedAt: DateTime.now());
+      });
+    }
     Future<void>.delayed(processingDelay, () {
       final j = _jobs[id];
       if (j == null) return;

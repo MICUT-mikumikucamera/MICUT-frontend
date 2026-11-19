@@ -59,6 +59,8 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
       final preview = _preview ?? photoDataUri(widget.draft.previewBytes);
       if (!mounted) return;
       ref.read(capturePhotoProvider(job.jobId).notifier).state = preview;
+      ref.read(captureOriginalProvider(job.jobId).notifier).state =
+          photoDataUri(widget.draft.originalBytes);
       context.pushReplacement(Routes.processingOf(job.jobId));
     } on UploadException {
       // 업로드 실패는 job 없음 → 메시지만 보여주고 이 화면에 머문다
