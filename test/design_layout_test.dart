@@ -95,10 +95,10 @@ void main() {
                           ]
                         : <GalleryItem>[]),
                 cardMemoProvider('v_sign').overrideWith((ref) async => ''),
-                collectionProvider.overrideWith((ref) async =>
-                    fakeCollection(photos: const {
-                      'v_sign': ['job-detail']
-                    })),
+                collectionProvider
+                    .overrideWith((ref) async => fakeCollection(photos: const {
+                          'v_sign': ['job-detail']
+                        })),
               ],
               child: MaterialApp(
                   theme: buildMiCutTheme(),

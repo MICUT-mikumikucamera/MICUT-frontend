@@ -63,8 +63,7 @@ class CollectionSummary {
   /// `no` 순서.
   final List<CollectionCard> cards;
 
-  CollectionCard? card(String id) =>
-      cards.where((c) => c.id == id).firstOrNull;
+  CollectionCard? card(String id) => cards.where((c) => c.id == id).firstOrNull;
 
   factory CollectionSummary.fromJson(Map<String, dynamic> j) =>
       CollectionSummary(

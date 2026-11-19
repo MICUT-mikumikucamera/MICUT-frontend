@@ -12,7 +12,8 @@ void main() {
   runApp(ProviderScope(overrides: [
     localStoreProvider.overrideWithValue(BrowserPreviewStore()),
     if (!kUseRealApi)
-      jobRepositoryProvider.overrideWithValue(FakeJobRepository()),
+      jobRepositoryProvider
+          .overrideWithValue(FakeJobRepository(detectPeople: true)),
   ], child: const MiCutApp()));
 }
 
@@ -38,8 +39,8 @@ class BrowserPreviewStore extends LocalStore {
 
   /// 브라우저에는 파일 저장소가 없다. 세션 동안만 같은 ID를 쓴다.
   @override
-  Future<String> deviceId() async =>
-      _sessionDeviceId ??= DateTime.now().microsecondsSinceEpoch.toRadixString(16);
+  Future<String> deviceId() async => _sessionDeviceId ??=
+      DateTime.now().microsecondsSinceEpoch.toRadixString(16);
   String? _sessionDeviceId;
 
   @override

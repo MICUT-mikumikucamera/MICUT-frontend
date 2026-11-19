@@ -11,6 +11,7 @@ import '../../core/theme/typography.dart';
 import '../../core/widgets/micut_button.dart';
 import '../../core/widgets/photo_placeholder.dart';
 import '../../data/local/local_store.dart';
+import '../../core/widgets/miku_illust.dart';
 
 /// Figma 09 갤러리 / 09-1 빈 상태 / 09-2 편집 / 09-3 삭제 확인
 ///
@@ -221,19 +222,8 @@ class _Empty extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 96,
-                height: 96,
-                decoration: const BoxDecoration(
-                  color: MiCutColors.bgSubtle,
-                  shape: BoxShape.circle,
-                ),
-                child: const MiCutIcon(
-                  Icons.image_outlined,
-                  size: 40,
-                  color: MiCutColors.gray400,
-                ),
-              ),
+              // Figma 176:4939 — 미쿠_결과 없음 205px, 아래 16px 뒤 문구.
+              const MikuIllustImage(MikuIllust.empty, size: 205),
               const SizedBox(height: Spacing.lg),
               Text('아직 사진이 없어요', style: MiCutText.heading18Semibold),
               const SizedBox(height: 36),

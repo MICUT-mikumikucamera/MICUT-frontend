@@ -38,6 +38,7 @@ class CollectionScreen extends ConsumerWidget {
           .firstOrNull
           ?.path;
     }
+
     return Scaffold(
       backgroundColor: MiCutColors.bgInverse,
       appBar: AppBar(

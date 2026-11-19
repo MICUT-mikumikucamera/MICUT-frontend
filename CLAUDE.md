@@ -33,6 +33,7 @@
 - 다크 월드 버튼은 `MiCutButton(onDark: true)`.
 - 글꼴은 Pretendard(assets/fonts). 로고 워드마크는 글꼴이 아니라 이미지.
 - 미쿠 실루엣·캐릭터 그림은 코드로 그리지 않는다. 필요하면 디자인팀이 준 에셋만 쓴다.
+  - SD 미쿠 일러스트 4종(2026-11-17)은 `MikuIllust` enum + `MikuIllustImage`(`core/widgets/miku_illust.dart`)로만 쓴다. 에셋: `assets/figma-export/miku-{loading,cheer,empty,collection}.png`
 
 ## 폴더 구조
 ```

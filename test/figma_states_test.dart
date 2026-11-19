@@ -187,10 +187,10 @@ void main() {
           overrides: [
             galleryProvider.overrideWith(
                 (ref) async => entry.key.contains('empty') ? [] : photos),
-            collectionProvider.overrideWith((ref) async => fakeCollection(
-                photos: {
-                  'v_sign': [for (var i = 0; i < 10; i++) 'job-$i']
-                })),
+            collectionProvider
+                .overrideWith((ref) async => fakeCollection(photos: {
+                      'v_sign': [for (var i = 0; i < 10; i++) 'job-$i']
+                    })),
             cardMemoProvider('v_sign').overrideWith((ref) async => ''),
           ],
           child: MaterialApp(
