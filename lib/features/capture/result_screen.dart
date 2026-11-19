@@ -145,7 +145,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
         useSafeArea: false,
         builder: (ctx) => MiCutDialog(
             title: '저장하지 않고 나갈까요?',
-            message: '사진을 저장하지 않으면 컬렉션에 등록되지 않아요.',
+            // TODO(디자인): 임시 문구. 카드는 완료 시 자동 등록되므로 컬렉션 언급 제거.
+            message: '사진을 저장하지 않으면 갤러리에 남지 않아요.',
             confirmLabel: '확인',
             danger: true,
             onConfirm: () => Navigator.pop(ctx, true)),

@@ -246,7 +246,7 @@ void main() {
                 title: deletion ? '사진 2장을 삭제할까요?' : '저장하지 않고 나갈까요?',
                 message: deletion
                     ? '사진첩에 저장하지 않은 이미지는 사라져요'
-                    : '사진을 저장하지 않으면 컬렉션에 등록되지 않아요.',
+                    : '사진을 저장하지 않으면 갤러리에 남지 않아요.',
                 confirmLabel: deletion ? '삭제' : '확인',
                 danger: true,
                 onConfirm: () => Navigator.pop(ctx)));
