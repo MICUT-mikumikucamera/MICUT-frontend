@@ -149,6 +149,7 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
     // 크롭 정보를 전혀 모르면(앱 재시작 등) 박스 위치를 맞출 수 없어 그리지 않는다.
     final cropKnown =
         crop != null || ref.read(captureInfoProvider(widget.jobId)) != null;
+    final hasUnpickable = _visiblePeople(job).any((p) => !p.person.eligible);
     return CaptureView(
       photoPath: ref.watch(capturePhotoProvider(widget.jobId)),
       photoOverlay: !cropKnown
@@ -162,18 +163,21 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
                   : (id) => setState(() => _selectedId = id),
             ),
       // TODO(디자인): 안내 문구·버튼 이름은 정윤님 확정 전 임시.
-      message: _selectError ?? '미쿠가 누구 포즈를 따라할까요?',
+      message: _selectError ??
+          (hasUnpickable
+              ? '따라할 사람을 눌러 주세요. 회색 박스는 너무 작아서 고를 수 없어요.'
+              : '미쿠가 따라할 사람을 눌러 주세요.'),
       onClose: _submitting ? null : _close,
       actions: Row(children: [
         Expanded(
             child: MiCutButton(
-                label: '따라하지 않기',
+                label: '미쿠만 찍기',
                 type: MiCutButtonType.secondary,
                 onPressed: _submitting ? null : () => _select(null))),
         const SizedBox(width: Spacing.md),
         Expanded(
             child: MiCutButton(
-                label: '따라하기',
+                label: '이 사람 따라하기',
                 loading: _submitting,
                 onPressed: _submitting || _selectedId == null
                     ? null
