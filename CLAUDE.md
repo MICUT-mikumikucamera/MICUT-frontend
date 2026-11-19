@@ -4,7 +4,7 @@
 이 파일은 AI(Claude, Cursor 등)가 이 레포를 수정할 때 따라야 하는 규칙이다. 사람도 같은 규칙을 따른다.
 
 ## 프로젝트 한 줄 요약
-사용자가 사진을 찍으면 서버가 장면을 분석해 미쿠를 합성한 결과를 돌려주는 Flutter 앱. 로그인 없음. 갤러리/컬렉션은 기기 로컬 저장.
+사용자가 사진을 찍으면 서버가 장면을 분석해 미쿠를 합성한 결과를 돌려주는 Flutter 앱. 구글 로그인 화면이 있으나 `AUTH_ENABLED=true` 로 빌드할 때만 켜진다(기본 꺼짐, 백엔드 로그인 계약 전까지 Fake). 갤러리/컬렉션은 기기 로컬 저장.
 
 ## 기술 스택 (바꾸지 말 것)
 - Flutter (stable), Dart 3.4+
@@ -73,6 +73,12 @@ Figma 와이어프레임: https://www.figma.com/design/gaEquzyI3Y2S9lGKfjgaRR/%E
 | 11 | 컬렉션 (홈 타일에서 진입) | features/collection/collection_screen.dart |
 | 12 | 카드 상세 | features/collection/card_detail_screen.dart |
 | — | 설정 (와이어프레임 없음) | features/settings/settings_screen.dart |
+| 00 | 로그인 (Figma 디자인 페이지 `0. 로그인/온보딩`) | features/auth/login_screen.dart |
+| 00-1 | 닉네임 입력 (기본/사용 가능/에러) | features/auth/nickname_screen.dart |
+| 00-2 | 이용약관 동의 | features/auth/terms_screen.dart |
+| 00-3 | 세션 만료 | features/auth/session_expired_screen.dart |
+
+로그인 단계는 `lib/data/auth/` 의 `AuthStatus` 로 정한다. 화면은 상태를 바꾸기만 하고 이동은 `router.dart` 의 `authRedirect` 가 맡는다. 실제 구현(`ApiAuthRepository`)은 백엔드 계약이 나온 뒤에 추가하고, 그때까지는 `FakeAuthRepository`.
 | 12-1 | 스토리형 보기 | **1차 범위 제외** |
 
 ## 탭 구조 (확정)

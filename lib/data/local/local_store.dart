@@ -166,6 +166,18 @@ class LocalStore {
 
   String? _deviceId;
 
+  /// Fake 로그인 상태. 실제 로그인은 서버가 세션을 들고 있으므로 Fake 에서만 쓴다.
+  Future<Map<String, dynamic>?> loadAuthState() async {
+    final file = File(p.join((await _dir()).path, 'auth.json'));
+    if (!await file.exists()) return null;
+    return jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+  }
+
+  Future<void> saveAuthState(Map<String, dynamic> state) async {
+    final file = File(p.join((await _dir()).path, 'auth.json'));
+    await file.writeAsString(jsonEncode(state), flush: true);
+  }
+
   /// 수집한 카드 ID 집합 (갤러리 항목의 card_ids 합집합).
   Future<Set<String>> collectedCardIds() async {
     final items = await loadGallery();

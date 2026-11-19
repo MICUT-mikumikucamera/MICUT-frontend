@@ -68,6 +68,8 @@ abstract final class MiCutColors {
   // Figma color/bg/danger/default → red/500.
   static const danger = Color(0xFFEF4444);
   static const bgDangerDefault = danger;
+  // 00-1 "사용 가능한 닉네임" 체크. 시안 색을 눈대중으로 읽은 값(Tailwind green-500).
+  static const success = Color(0xFF22C55E);
   static const onDanger = textInverse;
 
   static const background = bgDefault;
@@ -117,6 +119,9 @@ abstract final class MiCutGradients {
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [Color(0x00000000), Color(0xCC000000)]);
+
+  /// 00 로그인 배경 (Figma 402:1403). 위는 순흑, 아래로 갈수록 시안.
+  static const login = _FigmaLoginGradient();
   static const mint = primary;
   static const cyanDeep = LinearGradient(
     colors: [MiCutColors.cyan300, MiCutColors.cyan500],
@@ -138,6 +143,28 @@ abstract final class MiCutShadows {
   static const List<BoxShadow> glowCyan = [];
   static const List<BoxShadow> glowHud = [];
   static const List<BoxShadow> card = [];
+}
+
+/// 375x844 프레임 기준 타원형 방사 그라데이션: 중심 (187.5, 14.5), 가로 반지름 517.6,
+/// 세로 반지름 1165, 0.498 지점까지 순흑이고 1.0 에서 시안. 중간색은 선형 보간과 같다.
+class _FigmaLoginGradient extends RadialGradient {
+  const _FigmaLoginGradient()
+      : super(
+          colors: const [MiCutColors.gray950, MiCutColors.primary],
+          stops: const [.49805, 1],
+        );
+  @override
+  Shader createShader(Rect rect, {TextDirection? textDirection}) {
+    final center =
+        Offset(rect.left + rect.width / 2, rect.top + rect.height * 14.5 / 844);
+    final radiusY = rect.height * 1165 / 844;
+    final scaleX = (rect.width * 517.6 / 375) / radiusY;
+    // 중심을 기준으로 가로만 줄인다: x' = scaleX * (x - cx) + cx
+    final matrix = Matrix4(scaleX, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0,
+        center.dx * (1 - scaleX), 0, 0, 1);
+    return ui.Gradient.radial(
+        center, radiusY, colors, stops, TileMode.clamp, matrix.storage);
+  }
 }
 
 /// Linked fill style 213:9266, including its affine gradient coordinates.
