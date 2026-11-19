@@ -32,7 +32,9 @@ class DetectedPerson {
 
   final String personId;
 
-  /// [왼쪽, 위, 오른쪽, 아래]. **접수 때 보낸 원본 사진** 크기 대비 0~1.
+  /// [왼쪽, 위, 오른쪽, 아래]. **접수 때 보낸 원본 사진 전체** 크기 대비 0~1.
+  /// AI 는 원본 전체를 분석하고 crop 은 쓰지 않는다(성진님 확인 2026-11-19).
+  /// 화면에는 `peopleInCrop` 으로 크롭 기준으로 바꿔 그린다.
   final List<double> bboxNorm;
 
   /// false 면 고를 수 없다 (예: `too_small`).

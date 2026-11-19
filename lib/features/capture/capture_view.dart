@@ -7,15 +7,17 @@ import '../../core/theme/colors.dart';
 import '../../core/theme/spacing.dart';
 import '../../core/theme/typography.dart';
 import '../../core/widgets/photo_placeholder.dart';
+import '../../data/jobs/job.dart';
 
 // Keep the selected local image visible throughout this in-app capture flow.
 // Server upload paths are not public image URLs.
 final capturePhotoProvider =
     StateProvider.family<String?, String>((ref, id) => null);
 
-/// 접수 때 보낸 원본 전체(크롭 전). 사람 선택 박스(`bbox_norm`)가 이 기준이다.
-final captureOriginalProvider =
-    StateProvider.family<String?, String>((ref, id) => null);
+/// 접수 때 보낸 크기·크롭 정보. 사람 박스(`bbox_norm`, 원본 기준)를
+/// 크롭 화면 좌표로 바꿀 때 쓴다. 서버 응답에 crop 이 빠져 있어도 동작하게 앱이 들고 있는다.
+final captureInfoProvider =
+    StateProvider.family<CaptureInfo?, String>((ref, id) => null);
 
 class CaptureView extends StatelessWidget {
   const CaptureView(

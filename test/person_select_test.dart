@@ -8,6 +8,7 @@ import 'package:http/testing.dart';
 import 'package:micut/data/jobs/api_job_repository.dart';
 import 'package:micut/data/jobs/fake_job_repository.dart';
 import 'package:micut/data/jobs/job.dart';
+import 'package:micut/features/capture/person_picker.dart';
 
 /// 계약 micut_backend_contract_2026-11-18.json 예시 그대로.
 Map<String, dynamic> _awaitingJson() => {
@@ -60,6 +61,61 @@ void main() {
     });
     expect(r.cardIds, isEmpty);
     expect(r.newCardIds, isEmpty);
+  });
+
+  group('peopleInCrop (bbox 원본 기준 → 크롭 화면 기준)', () {
+    // 원본 1000×1500, 가운데 세로 크롭 x 0~1000, y 250~1250 (1:1)
+    const crop = CropRegion(x: 0, y: 250, width: 1000, height: 1000);
+    DetectedPerson person(String id, List<double> b, {bool eligible = true}) =>
+        DetectedPerson(personId: id, bboxNorm: b, eligible: eligible);
+
+    test('크롭 안 사람은 크롭 좌표로 바뀐다', () {
+      final r = peopleInCrop([
+        person('p0', [0.1, 0.2, 0.5, 0.6])
+      ], imageWidth: 1000, imageHeight: 1500, crop: crop);
+      expect(r, hasLength(1));
+      // y: 300~900px → 크롭 기준 (300-250)/1000=0.05 ~ (900-250)/1000=0.65
+      expect(r.single.rect.left, closeTo(0.1, 1e-9));
+      expect(r.single.rect.top, closeTo(0.05, 1e-9));
+      expect(r.single.rect.right, closeTo(0.5, 1e-9));
+      expect(r.single.rect.bottom, closeTo(0.65, 1e-9));
+    });
+
+    test('중심이 크롭 밖이면 빠진다 (결과 사진에 안 나옴)', () {
+      final r = peopleInCrop([
+        person('top', [0.2, 0.0, 0.4, 0.1]), // y 0~150px, 크롭 위
+        person('bottom', [0.2, 0.9, 0.4, 1.0]), // y 1350~1500px, 크롭 아래
+      ], imageWidth: 1000, imageHeight: 1500, crop: crop);
+      expect(r, isEmpty);
+    });
+
+    test('일부만 걸친 사람은 중심이 안이면 남고 박스는 잘린다', () {
+      final r = peopleInCrop([
+        person('p0', [0.1, 0.1, 0.3, 0.4])
+      ], imageWidth: 1000, imageHeight: 1500, crop: crop);
+      // y 150~600px, 중심 375px → 크롭 안. 위쪽은 250px 에서 잘림.
+      expect(r, hasLength(1));
+      expect(r.single.rect.top, closeTo(0.0, 1e-9));
+      expect(r.single.rect.bottom, closeTo(0.35, 1e-9));
+    });
+
+    test('crop 이 없으면 원본 전체 기준', () {
+      final r = peopleInCrop([
+        person('p0', [0.1, 0.2, 0.5, 0.6])
+      ], imageWidth: 1000, imageHeight: 1500);
+      final rect = r.single.rect;
+      expect([
+        rect.left,
+        rect.top,
+        rect.right,
+        rect.bottom
+      ], [
+        closeTo(0.1, 1e-9),
+        closeTo(0.2, 1e-9),
+        closeTo(0.5, 1e-9),
+        closeTo(0.6, 1e-9)
+      ]);
+    });
   });
 
   group('ApiJobRepository.selectPerson', () {

@@ -3,48 +3,99 @@ import 'package:flutter/material.dart';
 import '../../core/theme/colors.dart';
 import '../../data/jobs/job.dart';
 
-/// 사람 선택(계약 2026-11-18) — 원본 사진 위에 AI가 찾은 사람 박스를 그린다.
+/// 크롭 화면 위에 그릴 사람 한 명.
+class PersonInCrop {
+  const PersonInCrop(this.person, this.rect);
+  final DetectedPerson person;
+
+  /// 크롭 영역 기준 0~1 비율 사각형 (크롭 밖으로 나간 부분은 잘림).
+  final Rect rect;
+}
+
+/// AI 의 `bbox_norm`(원본 전체 기준) → 크롭 화면 기준으로 바꾼다.
 ///
-/// `bbox_norm` 은 접수 때 보낸 **원본 사진** 기준 비율이라, 원본을
-/// [BoxFit.contain] 으로 그린 영역에 그대로 대응시킨다. 크롭 변환은 하지 않는다.
+/// 결과 사진은 크롭 영역만 나오므로, 박스 **중심이 크롭 밖**인 사람은
+/// 결과에 안 나온다고 보고 목록에서 뺀다(숨김 + 선택 불가).
+/// [crop] 이 없으면 원본 전체를 크롭으로 본다.
+List<PersonInCrop> peopleInCrop(
+  List<DetectedPerson> people, {
+  required int imageWidth,
+  required int imageHeight,
+  CropRegion? crop,
+}) {
+  if (imageWidth <= 0 || imageHeight <= 0) return const [];
+  final c = crop == null
+      ? Rect.fromLTWH(0, 0, imageWidth.toDouble(), imageHeight.toDouble())
+      : Rect.fromLTWH(crop.x.toDouble(), crop.y.toDouble(),
+          crop.width.toDouble(), crop.height.toDouble());
+  if (c.width <= 0 || c.height <= 0) return const [];
+
+  final out = <PersonInCrop>[];
+  for (final p in people) {
+    if (p.bboxNorm.length != 4) continue;
+    final box = Rect.fromLTRB(
+      p.bboxNorm[0] * imageWidth,
+      p.bboxNorm[1] * imageHeight,
+      p.bboxNorm[2] * imageWidth,
+      p.bboxNorm[3] * imageHeight,
+    );
+    if (box.width <= 0 || box.height <= 0) continue;
+    if (!c.contains(box.center)) continue;
+    final clipped = box.intersect(c);
+    out.add(PersonInCrop(
+      p,
+      Rect.fromLTRB(
+        (clipped.left - c.left) / c.width,
+        (clipped.top - c.top) / c.height,
+        (clipped.right - c.left) / c.width,
+        (clipped.bottom - c.top) / c.height,
+      ),
+    ));
+  }
+  return out;
+}
+
+/// 사람 선택(계약 2026-11-18) — 크롭된 사진 위에 사람 박스를 그린다.
+/// 사진은 [BoxFit.contain] 으로 그려지므로 [aspectRatio](크롭 가로/세로)로 위치를 맞춘다.
 class PersonPickerOverlay extends StatelessWidget {
   const PersonPickerOverlay({
     super.key,
-    required this.imageWidth,
-    required this.imageHeight,
+    required this.aspectRatio,
     required this.people,
     required this.selectedId,
     required this.onSelect,
   });
 
-  final int imageWidth, imageHeight;
-  final List<DetectedPerson> people;
+  final double aspectRatio;
+  final List<PersonInCrop> people;
   final String? selectedId;
   final ValueChanged<String> onSelect;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
-        if (imageWidth <= 0 || imageHeight <= 0) return const SizedBox.shrink();
-        final scale = (c.maxWidth / imageWidth) < (c.maxHeight / imageHeight)
-            ? c.maxWidth / imageWidth
-            : c.maxHeight / imageHeight;
-        final w = imageWidth * scale, h = imageHeight * scale;
+        if (aspectRatio <= 0) return const SizedBox.shrink();
+        var w = c.maxWidth, h = c.maxWidth / aspectRatio;
+        if (h > c.maxHeight) {
+          h = c.maxHeight;
+          w = h * aspectRatio;
+        }
         final dx = (c.maxWidth - w) / 2, dy = (c.maxHeight - h) / 2;
         return Stack(children: [
           for (final (i, p) in people.indexed)
-            if (p.bboxNorm.length == 4)
-              Positioned(
-                left: dx + p.bboxNorm[0].clamp(0.0, 1.0) * w,
-                top: dy + p.bboxNorm[1].clamp(0.0, 1.0) * h,
-                width: ((p.bboxNorm[2] - p.bboxNorm[0]).clamp(0.0, 1.0)) * w,
-                height: ((p.bboxNorm[3] - p.bboxNorm[1]).clamp(0.0, 1.0)) * h,
-                child: _PersonBox(
-                  index: i + 1,
-                  eligible: p.eligible,
-                  selected: p.personId == selectedId,
-                  onTap: p.eligible ? () => onSelect(p.personId) : null,
-                ),
+            Positioned(
+              left: dx + p.rect.left * w,
+              top: dy + p.rect.top * h,
+              width: p.rect.width * w,
+              height: p.rect.height * h,
+              child: _PersonBox(
+                index: i + 1,
+                eligible: p.person.eligible,
+                selected: p.person.personId == selectedId,
+                onTap: p.person.eligible
+                    ? () => onSelect(p.person.personId)
+                    : null,
               ),
+            ),
         ]);
       });
 }

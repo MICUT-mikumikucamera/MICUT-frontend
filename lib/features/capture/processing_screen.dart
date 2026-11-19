@@ -52,9 +52,22 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
     });
   }
 
+  /// 접수 때 앱이 보낸 크기·크롭. 없으면 서버 응답의 capture.
+  CaptureInfo _capture(Job job) =>
+      ref.read(captureInfoProvider(widget.jobId)) ?? job.capture;
+
+  /// 크롭 화면에 보이는 사람만. 크롭 밖 사람은 결과에도 안 나오므로 뺀다.
+  List<PersonInCrop> _visiblePeople(Job job) {
+    final capture = _capture(job);
+    return peopleInCrop(job.people?.people ?? const [],
+        imageWidth: capture.w, imageHeight: capture.h, crop: capture.crop);
+  }
+
   void _showPicker(Job job) {
-    final people = job.people?.people ?? const <DetectedPerson>[];
-    final eligible = people.where((p) => p.eligible).toList();
+    final eligible = _visiblePeople(job)
+        .map((p) => p.person)
+        .where((p) => p.eligible)
+        .toList();
     final recommended = job.people?.recommendedPersonId;
     setState(() {
       _awaiting = job;
@@ -126,19 +139,23 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen> {
     );
   }
 
-  /// 03 촬영 확인 틀 재활용. 박스는 원본 사진 기준이라 원본을 보여준다.
+  /// 03 촬영 확인 틀 재활용. 크롭된 사진 위에 크롭 안에 있는 사람만 그린다.
   Widget _buildPicker(Job job) {
-    final original = ref.watch(captureOriginalProvider(widget.jobId));
-    final people = job.people?.people ?? const <DetectedPerson>[];
+    final capture = _capture(job);
+    final crop = capture.crop;
+    final aspect = crop != null && crop.height > 0
+        ? crop.width / crop.height
+        : (capture.h > 0 ? capture.w / capture.h : 0.0);
+    // 크롭 정보를 전혀 모르면(앱 재시작 등) 박스 위치를 맞출 수 없어 그리지 않는다.
+    final cropKnown =
+        crop != null || ref.read(captureInfoProvider(widget.jobId)) != null;
     return CaptureView(
-      photoPath: original ?? ref.watch(capturePhotoProvider(widget.jobId)),
-      // 원본이 없으면(앱 재시작 등) 박스 위치를 맞출 수 없어 그리지 않는다.
-      photoOverlay: original == null
+      photoPath: ref.watch(capturePhotoProvider(widget.jobId)),
+      photoOverlay: !cropKnown
           ? null
           : PersonPickerOverlay(
-              imageWidth: job.capture.w,
-              imageHeight: job.capture.h,
-              people: people,
+              aspectRatio: aspect,
+              people: _visiblePeople(job),
               selectedId: _selectedId,
               onSelect: _submitting
                   ? (_) {}
