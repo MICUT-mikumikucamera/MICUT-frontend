@@ -11,6 +11,7 @@ import '../../core/services/photo_bytes.dart';
 import '../../core/services/photo_download.dart';
 import '../../core/services/photo_share.dart';
 import '../../core/widgets/new_collection_overlay.dart';
+import '../../data/collection/providers.dart';
 import '../../data/local/poses.dart';
 
 import '../../app/router.dart';
@@ -69,20 +70,25 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
   }
 
   Future<void> _showNewCollection(Job job) async {
-    final ids = job.result?.cardIds ?? const <String>[];
+    final result = job.result;
+    if (result == null) return;
+    // 명세 v0.3: 서버가 이 기기 기준 신규 카드를 new_card_ids 로 알려준다.
+    // 서버 없이 도는 Fake 모드에서만 기기 기록과 비교해 직접 고른다.
+    var ids = result.newCardIds;
+    if (!kUseRealApi && ids.isEmpty && result.cardIds.isNotEmpty) {
+      final collected = await ref.read(localStoreProvider).collectedCardIds();
+      ids = result.cardIds.where((id) => !collected.contains(id)).toList();
+    }
     if (ids.isEmpty) return;
-    final collected = await ref.read(localStoreProvider).collectedCardIds();
-    final newPoses =
-        kPoses.where((p) => ids.contains(p.id) && !collected.contains(p.id));
-    if (!mounted || newPoses.isEmpty) return;
-    final pose = newPoses.first;
+    final pose = poseById(ids.first);
+    if (!mounted || pose == null) return;
     await showDialog<void>(
       context: context,
       barrierColor: MiCutColors.modalDim,
       useSafeArea: false,
       barrierLabel: '컬렉션 안내 닫기',
       builder: (dialogContext) => NewCollectionOverlay(
-          number: pose.number,
+          number: pose.no,
           name: pose.name,
           imagePath: _imagePath,
           onClose: () => Navigator.of(dialogContext).pop()),
@@ -102,11 +108,13 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
         _writtenToAlbum = true;
       }
       // Register collection progress only after the save action succeeds.
+      // job_id 를 같이 저장해야 컬렉션 응답의 photos[].job_id 와 맞출 수 있다.
       final item = _galleryItem ??= await store.addFromBytes(bytes,
-          cardIds: _job?.result?.cardIds ?? const []);
+          jobId: widget.jobId, cardIds: _job?.result?.cardIds ?? const []);
       if (!kIsWeb) await store.markSaved(item.id);
       ref.invalidate(galleryProvider);
       ref.invalidate(collectedCardIdsProvider);
+      ref.invalidate(collectionProvider);
       if (!mounted) return;
       setState(() => _saved = true);
       if (!kIsWeb) {

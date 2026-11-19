@@ -1,0 +1,107 @@
+{
+  "_문서": "MiCut 백엔드 연결 형식 (2026-11-18 초안). 인물 선택 + AI 결과로 카드 지급",
+  "_참고": "AI 실행 위치(GPU 서버)와 호출 방식은 11/19 AI 완성 후 확정. 그 전에는 아래 예시로 가짜 응답을 만들어 작업",
+
+  "1_인물_선택": {
+    "_흐름": [
+      "접수 → AI 사람 인식",
+      "사람이 1명 이상이면 status = awaiting_person (1명이어도 사용자가 선택)",
+      "사람이 0명이면 선택 없이 바로 진행 (solo)",
+      "사용자가 POST /api/v1/jobs/{job_id}/person 으로 선택 → processing → done / failed"
+    ],
+
+    "상태_조회_응답_예시": {
+      "_설명": "GET /api/v1/jobs/{job_id}. 기존 Job 필드는 그대로, status 값 하나와 people 필드 추가",
+      "job_id": "j_20261119_a1b2c3d4e5f6",
+      "status": "awaiting_person",
+      "people": {
+        "_설명": "AI의 people.json 내용을 그대로 전달. bbox_norm = [왼쪽, 위, 오른쪽, 아래], 사진 크기 대비 0~1",
+        "status": "ok",
+        "recommended_person_id": "p0",
+        "people": [
+          {"person_id": "p0", "bbox_norm": [0.10, 0.15, 0.45, 0.80], "eligible": true},
+          {"person_id": "p1", "bbox_norm": [0.75, 0.20, 0.82, 0.30], "eligible": false, "reason": "too_small"}
+        ]
+      },
+      "result": null,
+      "error": null
+    },
+
+    "선택_요청_예시": {
+      "_API": "POST /api/v1/jobs/{job_id}/person",
+      "따라하기": {"mode": "human", "person_id": "p0"},
+      "따라하지_않기": {"mode": "solo", "person_id": null}
+    },
+
+    "선택_요청_규칙": {
+      "성공": "200, 작업 상태를 processing으로 바꿔 반환",
+      "awaiting_person이_아닌_작업": "409 (기존 RETRY_NOT_ALLOWED처럼 새 코드 PERSON_SELECT_NOT_ALLOWED 제안)",
+      "없는_person_id_또는_eligible_false": "422 INVALID_REQUEST",
+      "AI에_넘길_값": "human이면 --person p0, solo면 --solo"
+    }
+  },
+
+  "2_카드_지급": {
+    "_규칙": [
+      "award()의 무작위 대신 AI result.json의 card_id 사용",
+      "card_id가 null이면 카드 없음: card_ids, new_card_ids 모두 빈 배열. 결과 사진은 정상 반환(갤러리에만 저장)",
+      "tags는 result.tags에 그대로"
+    ],
+
+    "AI_결과_예시_카드_있음": {
+      "status": "success",
+      "image": "final.jpg",
+      "person": {"mode": "human", "person_id": "p0"},
+      "pose": {"pose_id": "COL_V", "source": "preset"},
+      "card_id": "v_sign",
+      "tags": ["indoor", "seat"],
+      "failure": null
+    },
+
+    "AI_결과_예시_카드_없음": {
+      "_설명": "곡 포즈(MV*)나 사람 따라하기 포즈 등 컬렉션에 없는 포즈",
+      "status": "success",
+      "image": "final.jpg",
+      "person": {"mode": "solo", "person_id": null},
+      "pose": {"pose_id": "MV08", "source": "song"},
+      "card_id": null,
+      "tags": ["outdoor", "sea"],
+      "failure": null
+    },
+
+    "AI_결과_예시_실패": {
+      "status": "failed",
+      "image": null,
+      "person": {"mode": "solo", "person_id": null},
+      "pose": null,
+      "card_id": null,
+      "tags": [],
+      "failure": {"code": "NO_VALID_CANDIDATE", "stage": "placement", "retryable": true}
+    },
+
+    "백엔드_결과_변환_예시": {
+      "_설명": "위 '카드 있음' 결과를 받았을 때 GET /api/v1/jobs/{job_id}의 result",
+      "image_url": "/results/j_20261119_a1b2c3d4e5f6-1.jpg",
+      "tags": ["indoor", "seat"],
+      "card_ids": ["v_sign"],
+      "new_card_ids": ["v_sign"]
+    }
+  },
+
+  "3_카드_ID_매핑": {
+    "_설명": "AI 포즈 ID → 백엔드 cards.json ID. 매핑은 AI 쪽에서 해서 card_id로 보냄. 백엔드는 참고용",
+    "COL_GYARU": "gyaru_peace",
+    "COL_V": "v_sign",
+    "COL_HALF": "half_heart",
+    "COL_HEART": "full_heart",
+    "COL_WAVE": "wave",
+    "COL_MIKU": "miku_arms",
+    "COL_KISS": "kiss",
+    "COL_CHEEK": "cheek_poke",
+    "COL_FLOWER": "flower_pose",
+    "COL_GDG": "gdg_pose",
+    "COL_ALIEN": "alien_fingers",
+    "COL_LEEK": "leek",
+    "MV01~MV15, 사람 따라하기": null
+  }
+}

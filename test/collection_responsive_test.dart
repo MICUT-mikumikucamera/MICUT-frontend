@@ -4,7 +4,31 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:micut/core/theme/theme.dart';
 import 'package:micut/core/widgets/pose_card.dart';
 import 'package:micut/data/local/local_store.dart';
+import 'package:micut/data/collection/collection.dart';
+import 'package:micut/data/collection/providers.dart';
+import 'package:micut/data/local/poses.dart';
 import 'package:micut/features/collection/collection_screen.dart';
+
+/// 서버 컬렉션 응답 대역. 실제 호출 없이 화면만 그린다.
+CollectionSummary fakeCollection({
+  Map<String, List<String>> photos = const {},
+}) =>
+    CollectionSummary(
+      acquiredCount: photos.keys.where((id) => photos[id]!.isNotEmpty).length,
+      total: kPoses.length,
+      cards: [
+        for (final pose in kPoses)
+          CollectionCard(
+            id: pose.id,
+            no: pose.no,
+            name: pose.name,
+            photos: [
+              for (final jobId in photos[pose.id] ?? const <String>[])
+                CardPhoto(jobId: jobId, acquiredAt: DateTime(2026, 11, 6)),
+            ],
+          ),
+      ],
+    );
 
 void main() {
   testWidgets('collection adds columns at the card width limit on resize',
@@ -16,7 +40,7 @@ void main() {
     await tester.pumpWidget(ProviderScope(
         overrides: [
           galleryProvider.overrideWith((ref) async => <GalleryItem>[]),
-          collectedCardIdsProvider.overrideWith((ref) async => <String>{}),
+          collectionProvider.overrideWith((ref) async => fakeCollection()),
         ],
         child: MaterialApp(
             theme: buildMiCutTheme(), home: const CollectionScreen())));

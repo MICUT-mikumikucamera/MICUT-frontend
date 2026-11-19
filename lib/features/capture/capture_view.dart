@@ -7,11 +7,17 @@ import '../../core/theme/colors.dart';
 import '../../core/theme/spacing.dart';
 import '../../core/theme/typography.dart';
 import '../../core/widgets/photo_placeholder.dart';
+import '../../data/jobs/job.dart';
 
 // Keep the selected local image visible throughout this in-app capture flow.
 // Server upload paths are not public image URLs.
 final capturePhotoProvider =
     StateProvider.family<String?, String>((ref, id) => null);
+
+/// 접수 때 보낸 크기·크롭 정보. 사람 박스(`bbox_norm`, 원본 기준)를
+/// 크롭 화면 좌표로 바꿀 때 쓴다. 서버 응답에 crop 이 빠져 있어도 동작하게 앱이 들고 있는다.
+final captureInfoProvider =
+    StateProvider.family<CaptureInfo?, String>((ref, id) => null);
 
 class CaptureView extends StatelessWidget {
   const CaptureView(
@@ -22,6 +28,7 @@ class CaptureView extends StatelessWidget {
       required this.onClose,
       this.processing = false,
       this.actionNotice,
+      this.photoOverlay,
       this.topActions = const []});
   final String? photoPath;
   final String message;
@@ -30,6 +37,9 @@ class CaptureView extends StatelessWidget {
   final bool processing;
   final List<Widget> topActions;
   final String? actionNotice;
+
+  /// 사진 위에 겹쳐 그릴 위젯 (사람 선택 박스 등). 사진 영역 전체를 채운다.
+  final Widget? photoOverlay;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -54,6 +64,7 @@ class CaptureView extends StatelessWidget {
                         radius: 0,
                         fit: BoxFit.contain,
                         width: double.infinity),
+                    if (photoOverlay != null) photoOverlay!,
                     if (processing) ...[
                       const ColoredBox(color: MiCutColors.dim),
                       const Center(child: MiCutLoading()),

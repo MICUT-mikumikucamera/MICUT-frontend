@@ -12,7 +12,8 @@ void main() {
   runApp(ProviderScope(overrides: [
     localStoreProvider.overrideWithValue(BrowserPreviewStore()),
     if (!kUseRealApi)
-      jobRepositoryProvider.overrideWithValue(FakeJobRepository()),
+      jobRepositoryProvider
+          .overrideWithValue(FakeJobRepository(detectPeople: true)),
   ], child: const MiCutApp()));
 }
 
@@ -23,17 +24,24 @@ class BrowserPreviewStore extends LocalStore {
   Future<List<GalleryItem>> loadGallery() async => List.of(_items);
   @override
   Future<GalleryItem> addFromBytes(Uint8List bytes,
-      {List<String> cardIds = const []}) async {
+      {String? jobId, List<String> cardIds = const []}) async {
     if (bytes.isEmpty) throw ArgumentError('Photo is empty');
     final now = DateTime.now();
     final item = GalleryItem(
         id: now.microsecondsSinceEpoch.toString(),
         path: photoDataUri(bytes),
         createdAt: now,
+        jobId: jobId,
         cardIds: cardIds);
     _items.insert(0, item);
     return item;
   }
+
+  /// 브라우저에는 파일 저장소가 없다. 세션 동안만 같은 ID를 쓴다.
+  @override
+  Future<String> deviceId() async => _sessionDeviceId ??=
+      DateTime.now().microsecondsSinceEpoch.toRadixString(16);
+  String? _sessionDeviceId;
 
   @override
   Future<void> markSaved(String id) async {

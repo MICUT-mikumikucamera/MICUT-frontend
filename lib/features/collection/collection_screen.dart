@@ -9,8 +9,8 @@ import '../../core/theme/colors.dart';
 import '../../core/theme/spacing.dart';
 import '../../core/theme/typography.dart';
 import '../../core/widgets/pose_card.dart';
+import '../../data/collection/providers.dart';
 import '../../data/local/local_store.dart';
-import '../../data/local/poses.dart';
 
 /// Figma 11: 어두운 컬렉션 배경과 흰 폴라로이드 카드.
 class CollectionScreen extends ConsumerWidget {
@@ -18,11 +18,27 @@ class CollectionScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final collected = ref.watch(collectedCardIdsProvider);
+    final collection = ref.watch(collectionProvider);
     final gallery = ref.watch(galleryProvider);
-    final ids = collected.valueOrNull ?? {};
-    final items = gallery.valueOrNull ?? const [];
-    final ratio = kPoses.isEmpty ? 0.0 : ids.length / kPoses.length;
+    final summary = collection.valueOrNull;
+    final cards = summary?.cards ?? const [];
+    final items = gallery.valueOrNull ?? const <GalleryItem>[];
+    final acquired = summary?.acquiredCount ?? 0;
+    final total = summary?.total ?? cards.length;
+    final ratio = total == 0 ? 0.0 : acquired / total;
+
+    /// 서버는 이미지 주소를 주지 않는다. 카드가 얻은 사진의 job_id 로
+    /// 기기에 저장된 결과 사진을 찾는다. 못 찾으면 자리 표시만 보여준다.
+    String? thumbnail(String cardId) {
+      final card = summary?.card(cardId);
+      if (card == null || card.photos.isEmpty) return null;
+      final jobIds = {for (final photo in card.photos) photo.jobId};
+      return items
+          .where((g) => g.jobId != null && jobIds.contains(g.jobId))
+          .firstOrNull
+          ?.path;
+    }
+
     return Scaffold(
       backgroundColor: MiCutColors.bgInverse,
       appBar: AppBar(
@@ -33,10 +49,10 @@ class CollectionScreen extends ConsumerWidget {
           IconButton(
             tooltip: '스토리 보기',
             icon: const MiCutIcon(Icons.view_carousel_outlined),
-            onPressed: kPoses.where((pose) => ids.contains(pose.id)).isEmpty
+            onPressed: cards.where((card) => card.acquired).isEmpty
                 ? null
                 : () => context.push(Routes.cardStoryOf(
-                    kPoses.firstWhere((pose) => ids.contains(pose.id)).id)),
+                    cards.firstWhere((card) => card.acquired).id)),
           )
         ],
         backgroundColor: MiCutColors.bgInverse,
@@ -44,9 +60,9 @@ class CollectionScreen extends ConsumerWidget {
         titleTextStyle: MiCutText.heading20Semibold
             .copyWith(color: MiCutColors.textInverse),
       ),
-      body: collected.isLoading || gallery.isLoading
+      body: collection.isLoading || gallery.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : collected.hasError || gallery.hasError
+          : collection.hasError || gallery.hasError
               ? const SizedBox.shrink()
               : DecoratedBox(
                   decoration:
@@ -64,7 +80,7 @@ class CollectionScreen extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                  '진행도 (${ids.length.toString().padLeft(2, '0')}/${kPoses.length.toString().padLeft(2, '0')})',
+                                  '진행도 (${acquired.toString().padLeft(2, '0')}/${total.toString().padLeft(2, '0')})',
                                   style: MiCutText.label16Regular.copyWith(
                                       color: MiCutColors.textInverse)),
                               const SizedBox(height: Spacing.sm),
@@ -97,8 +113,8 @@ class CollectionScreen extends ConsumerWidget {
                                           crossAxisSpacing: 15,
                                           childAspectRatio: 160 / 207),
                                   delegate: SliverChildBuilderDelegate((_, i) {
-                                    final pose = kPoses[i];
-                                    final has = ids.contains(pose.id);
+                                    final card = cards[i];
+                                    final has = card.acquired;
                                     return Transform.rotate(
                                         angle: (i % 4 == 0 || i % 4 == 3
                                                 ? -2
@@ -106,20 +122,16 @@ class CollectionScreen extends ConsumerWidget {
                                             3.141592653589793 /
                                             180,
                                         child: PoseCard(
-                                            number: pose.number,
-                                            name: pose.name,
+                                            number: card.no,
+                                            name: card.name,
                                             collected: has,
-                                            imagePath: items
-                                                .where((g) =>
-                                                    g.cardIds.contains(pose.id))
-                                                .firstOrNull
-                                                ?.path,
+                                            imagePath: thumbnail(card.id),
                                             onTap: has
                                                 ? () => context.push(
                                                     Routes.cardDetailOf(
-                                                        pose.id))
+                                                        card.id))
                                                 : null));
-                                  }, childCount: kPoses.length),
+                                  }, childCount: cards.length),
                                 )),
                       ),
                     ],

@@ -9,6 +9,9 @@ import 'package:micut/core/theme/theme.dart';
 import 'package:micut/core/widgets/micut_button.dart';
 import 'package:micut/core/widgets/micut_tab_bar.dart';
 import 'package:micut/data/local/local_store.dart';
+import 'package:micut/data/collection/collection.dart';
+import 'package:micut/data/collection/providers.dart';
+import 'package:micut/data/local/poses.dart';
 import 'package:micut/features/home/home_screen.dart';
 import 'package:micut/features/capture/capture_guide_screen.dart';
 import 'package:micut/features/gallery/photo_detail_screen.dart';
@@ -16,6 +19,27 @@ import 'package:micut/features/collection/card_detail_screen.dart';
 import 'package:micut/features/collection/collection_screen.dart';
 import 'package:micut/features/gallery/gallery_screen.dart';
 import 'package:micut/features/capture/capture_view.dart';
+
+/// 서버 컬렉션 응답 대역. 실제 호출 없이 화면만 그린다.
+CollectionSummary fakeCollection({
+  Map<String, List<String>> photos = const {},
+}) =>
+    CollectionSummary(
+      acquiredCount: photos.keys.where((id) => photos[id]!.isNotEmpty).length,
+      total: kPoses.length,
+      cards: [
+        for (final pose in kPoses)
+          CollectionCard(
+            id: pose.id,
+            no: pose.no,
+            name: pose.name,
+            photos: [
+              for (final jobId in photos[pose.id] ?? const <String>[])
+                CardPhoto(jobId: jobId, acquiredAt: DateTime(2026, 11, 6)),
+            ],
+          ),
+      ],
+    );
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -38,7 +62,7 @@ void main() {
         for (final entry in <String, Widget>{
           'guide': const CaptureGuideScreen(),
           'photo-detail': const PhotoDetailScreen(id: 'fixture'),
-          'card-detail': const CardDetailScreen(id: '001'),
+          'card-detail': const CardDetailScreen(id: 'v_sign'),
           'home': const HomeScreen(),
           'gallery': const GalleryScreen(),
           'collection': const CollectionScreen(),
@@ -66,12 +90,15 @@ void main() {
                                 id: 'fixture',
                                 path: 'assets/figma-export/pose-locked.png',
                                 createdAt: DateTime(2026, 11, 6),
-                                cardIds: ['001'])
+                                jobId: 'job-detail',
+                                cardIds: ['v_sign'])
                           ]
                         : <GalleryItem>[]),
-                cardMemoProvider('001').overrideWith((ref) async => ''),
-                collectedCardIdsProvider
-                    .overrideWith((ref) async => <String>{}),
+                cardMemoProvider('v_sign').overrideWith((ref) async => ''),
+                collectionProvider
+                    .overrideWith((ref) async => fakeCollection(photos: const {
+                          'v_sign': ['job-detail']
+                        })),
               ],
               child: MaterialApp(
                   theme: buildMiCutTheme(),

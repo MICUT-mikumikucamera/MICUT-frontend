@@ -7,26 +7,43 @@ import 'package:http/http.dart' as http;
 import 'job.dart';
 import 'job_repository.dart';
 
-/// 실제 서버 구현. 엔드포인트는 백엔드 명세 v0 기준 추정이며,
-/// 백엔드가 확정되면 경로/필드명을 여기서만 고친다.
+/// 실제 서버 구현. 백엔드 명세 v0.3 기준.
 ///
-/// 가정한 엔드포인트:
 ///   POST   /api/v1/jobs                  multipart(photo, w, h, rotation, fx?, crop JSON)  → Job
 ///   GET    /api/v1/jobs/{job_id}                                           → Job
+///   POST   /api/v1/jobs/{job_id}/person    {mode, person_id}               → Job (계약 2026-11-18)
 ///   POST   /api/v1/jobs/{job_id}/retry                                     → Job
 ///   POST   /api/v1/jobs/{job_id}/discard                                   → 204
+///
+/// 접수에는 `X-Device-Id` 헤더를 같이 보낸다. 그래야 얻은 카드가 이 기기의
+/// 컬렉션에 기록되고 `result.new_card_ids` 가 채워진다 (명세 v0.3 §2).
 class ApiJobRepository extends JobRepository {
-  ApiJobRepository({required this.baseUrl, http.Client? client})
+  ApiJobRepository({required this.baseUrl, this.deviceId, http.Client? client})
       : _client = client ?? http.Client();
 
   final String baseUrl;
+
+  /// 없으면 헤더를 보내지 않는다. 그 경우 카드는 정해지지만 컬렉션에 기록되지 않는다.
+  final Future<String> Function()? deviceId;
   final http.Client _client;
 
   Uri _u(String path) => Uri.parse('$baseUrl$path');
 
+  Future<Map<String, String>> _headers() async {
+    final resolve = deviceId;
+    if (resolve == null) return const {};
+    try {
+      return {'X-Device-Id': await resolve()};
+    } catch (_) {
+      // 기기 ID를 못 읽어도 접수 자체는 막지 않는다. 컬렉션 기록만 빠진다.
+      return const {};
+    }
+  }
+
   @override
   Future<Job> createJob(XFile photo, CaptureInfo capture) async {
     final req = http.MultipartRequest('POST', _u('/api/v1/jobs'))
+      ..headers.addAll(await _headers())
       ..files.add(http.MultipartFile.fromBytes(
           'photo', await photo.readAsBytes(),
           filename: photo.name.isEmpty ? 'photo.jpg' : photo.name))
@@ -57,6 +74,28 @@ class ApiJobRepository extends JobRepository {
   @override
   Future<Job> retry(String jobId) async {
     final res = await _client.post(_u('/api/v1/jobs/$jobId/retry'));
+    _check(res);
+    return Job.fromJson(_json(res));
+  }
+
+  @override
+  Future<Job> selectPerson(String jobId, {String? personId}) async {
+    final res = await _client.post(_u('/api/v1/jobs/$jobId/person'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'mode': personId == null ? 'solo' : 'human',
+          'person_id': personId,
+        }));
+    if (res.statusCode == 409 || res.statusCode == 422) {
+      String? code;
+      try {
+        code =
+            (_json(res)['error'] as Map<String, dynamic>?)?['code'] as String?;
+      } catch (_) {
+        // 본문이 JSON 이 아니어도 상태 코드만으로 처리할 수 있다.
+      }
+      throw PersonSelectException(res.statusCode, code);
+    }
     _check(res);
     return Job.fromJson(_json(res));
   }

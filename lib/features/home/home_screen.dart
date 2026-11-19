@@ -9,6 +9,7 @@ import '../../core/theme/spacing.dart';
 import '../../core/theme/typography.dart';
 import '../../core/widgets/brand_logo.dart';
 import '../../core/widgets/micut_icon_button.dart';
+import '../../core/widgets/miku_illust.dart';
 import '../../core/widgets/photo_placeholder.dart';
 import '../../data/local/local_store.dart';
 
@@ -58,6 +59,11 @@ class HomeScreen extends ConsumerWidget {
                       background:
                           'assets/figma-export/home-capture-background.png',
                       icon: Icons.photo_camera_outlined,
+                      // Figma 206:7720 — x 167.5, y 4, 187px (오른쪽으로 20px 넘침)
+                      illust: MikuIllust.cheer,
+                      illustSize: 187,
+                      illustTop: 4,
+                      illustRight: -20,
                       onTap: () => context.push(Routes.captureGuide),
                     ),
                     const SizedBox(height: Spacing.lg),
@@ -68,6 +74,11 @@ class HomeScreen extends ConsumerWidget {
                       background:
                           'assets/figma-export/home-collection-background.png',
                       icon: Icons.style_outlined,
+                      // Figma 176:4762 — x 167.6, y -21, 225px (위·오른쪽으로 넘쳐 잘림)
+                      illust: MikuIllust.collection,
+                      illustSize: 225,
+                      illustTop: -21,
+                      illustRight: -57,
                       onTap: () => context.push(Routes.collection),
                     ),
                     const SizedBox(height: Spacing.screenH),
@@ -144,10 +155,16 @@ class _FeatureTile extends StatelessWidget {
       required this.icon,
       required this.background,
       required this.height,
+      required this.illust,
+      required this.illustSize,
+      required this.illustTop,
+      required this.illustRight,
       required this.onTap});
   final String label, description, background;
   final IconData icon;
   final double height;
+  final MikuIllust illust;
+  final double illustSize, illustTop, illustRight;
   final VoidCallback onTap;
 
   @override
@@ -157,31 +174,42 @@ class _FeatureTile extends StatelessWidget {
         child: Ink.image(
           image: AssetImage(background),
           fit: BoxFit.fill,
-          child: InkWell(
-            onTap: onTap,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: height),
-              child: Padding(
-                padding: const EdgeInsets.all(Spacing.screenH),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(height: height - 130),
-                    MiCutIcon(icon, size: 30, color: MiCutColors.textInverse),
-                    const SizedBox(height: Spacing.s6),
-                    Text(label,
-                        style: MiCutText.heading20Semibold
-                            .copyWith(color: MiCutColors.textInverse)),
-                    const SizedBox(height: Spacing.s6),
-                    Text(description,
-                        style: MiCutText.detail14Regular
-                            .copyWith(color: MiCutColors.textInverse)),
-                  ],
+          child: Stack(
+              fit: StackFit.passthrough,
+              clipBehavior: Clip.none,
+              children: [
+                Positioned(
+                    top: illustTop,
+                    right: illustRight,
+                    child: IgnorePointer(
+                        child: MikuIllustImage(illust, size: illustSize))),
+                InkWell(
+                  onTap: onTap,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: height),
+                    child: Padding(
+                      padding: const EdgeInsets.all(Spacing.screenH),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(height: height - 130),
+                          MiCutIcon(icon,
+                              size: 30, color: MiCutColors.textInverse),
+                          const SizedBox(height: Spacing.s6),
+                          Text(label,
+                              style: MiCutText.heading20Semibold
+                                  .copyWith(color: MiCutColors.textInverse)),
+                          const SizedBox(height: Spacing.s6),
+                          Text(description,
+                              style: MiCutText.detail14Regular
+                                  .copyWith(color: MiCutColors.textInverse)),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ),
+              ]),
         ),
       );
 }
