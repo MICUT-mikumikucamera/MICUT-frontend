@@ -67,7 +67,18 @@ class CaptureView extends StatelessWidget {
                     if (photoOverlay != null) photoOverlay!,
                     if (processing) ...[
                       const ColoredBox(color: MiCutColors.dim),
-                      const Center(child: MiCutLoading()),
+                      LayoutBuilder(builder: (context, photoBounds) {
+                        final view = View.of(context);
+                        final top =
+                            view.padding.top / view.devicePixelRatio + 43;
+                        final offset = MediaQuery.sizeOf(context).height / 2 -
+                            top -
+                            photoBounds.maxHeight / 2;
+                        return Center(
+                            child: Transform.translate(
+                                offset: Offset(0, offset),
+                                child: const MiCutLoading()));
+                      }),
                     ],
                   ])),
                   ConstrainedBox(

@@ -89,10 +89,54 @@
 - Browser inspection remains intentionally omitted at the user's request.
 - Final web preview build succeeded (44.0s, --no-wasm-dry-run); static premium audit 0 findings; scoped diff whitespace check passed.
 
-## main 통합 검증 — 2026-11-08
+## 2026-11-18 Figma refresh
 
-- 최신 origin/main 기준 별도 작업 폴더에서 통합. 기존 Android/iOS/web 프로젝트 파일 보존.
-- README에 Figma와 다른 사용자 요청 변경사항 및 웹 세션 저장/백엔드 계약 한계 명시.
-- 전체 flutter analyze: 0 issues. 전체 flutter test: 34 passed. Strict static audit: 0 findings.
-- Pages 워크플로는 현재 웹 진입점과 MICUT_REAL_API / MICUT_API_URL을 사용하며 기존 서버 주소와 main 자동 배포를 유지한다.
-- GitHub Pages와 동일 옵션의 release 웹 빌드 성공 (31.6s). 브라우저 화면 검사는 수행하지 않음.
+- Browser-exported latest Figma was compared with the saved 2026-11-06 document using normalized image hashes. Runtime assets are original standalone Figma exports.
+- flutter test --no-pub --dart-define=WRITE_PREVIEWS=true: 45 passed. Includes 2/20 grapheme boundaries, rejected whitespace/emoji, IME composition, consent gating, nickname retention on back, auth failure recovery, no fake production login, 320/390px layouts at 2x text with keyboard, reduced motion, collection auto-close/manual-close/disposal.
+- Final flutter analyze --no-pub: no issues. Final changes after the full suite only added const annotations and equivalent braces.
+- flutter build web -t lib/browser_preview.dart --no-pub --no-wasm-dry-run: succeeded (30.7s). Temporary verification mirror needed flutter create . --platforms web --no-pub because the repository has no web host scaffolding. Generated host files were confined to the mirror. Existing optional CupertinoIcons font warning remains.
+- Strict premium audit: 0 findings. DESIGN.md lint: 0 errors, 1 warning because the existing prose document has no YAML frontmatter.
+- Widget-rendered home/login/terms screenshots were inspected; no app browser verification was performed, honoring the user's existing preference.
+- Verification mirror: C:/Users/poplo/AppData/Local/Temp/micut-20261118-verify. Screenshots: build/design-previews. Real Google authentication, session expiry integration and legal content are pending OAuth settings, an agreed authentication/signup/profile/session API contract, and actual terms/privacy URLs. Preview never persists authentication or consent.
+
+## 2026-11-19 authentication design preview
+
+- Browser preview defaults to the UI-only login flow unless real API mode is selected; explicit MICUT_AUTH_PREVIEW overrides this default. Legal full-view actions show an in-app placeholder document screen in preview and preserve consent state on return.
+- Focused figma_refresh_test.dart: 11 passed, including both legal preview pages and consent preservation. Changed-file dart analyze: no issues. Full flutter analyze stalled and was stopped; no full-analysis success is claimed.
+- Web build succeeded (35.2s). Existing optional CupertinoIcons font warning remains. Strict static audit: 0 findings. DESIGN.md lint: 0 errors, existing missing-YAML warning.
+- No Google authentication, published legal content, or stored consent added. Browser visual review remains user-owned.
+
+## 2026-11-19 device appearance correction
+
+- Login uses platform brightness from first render and responds to system changes. Removed timed dark-to-light transition.
+- Changed-file static analysis: no issues. Focused authentication suite: 12 passed, including light/dark initial appearance, persistence after two seconds and live preference change.
+- Web preview rebuilt successfully (27.5s) in the directory served on port 8877. Existing optional CupertinoIcons warning remains. Browser visual inspection is left to the user.
+
+## 2026-11-19 responsive copy, all-consent and card artwork
+
+- Changed-file static analysis: no issues. Combined auth/layout suite: 15 passed. Checks Korean word line boxes at multiple widths/text scales, all-consent toggle and individual synchronization, and home artwork containment/text separation at 320/390px and enlarged text.
+- Widget-rendered home/nickname images inspected. Original miku-capture asset contains full artwork; negative layout offsets caused clipping. No browser visual review performed.
+
+## 2026-11-19 source alignment restoration
+
+- Compared decoded Figma nodes 402:2542, 402:1274, 402:2500 and check component 402:3006 with runtime. Restored rounded terms rows, right-side check, inline full-view link, title breaks and source spacing; all-consent stays as an explicit user addition below the original rows.
+- Restored login typography/spacing. Home artwork now uses the maximum size allowed by card height and measured readable text width.
+- Changed-file analysis: no issues. Auth/layout suite: 15 passed across narrow widths and enlarged text. Inspected widget-rendered terms and home images. Browser visual review remains user-owned.
+
+## 2026-11-20 alignment and login appearance verification
+
+- Whole suite: 51 passed before final processing/popup position refinements. After those refinements, source-state/auth/capture-fit suite: 20 passed. Final nickname counter visibility adjustment: alignment/auth/layout suite 19 passed.
+- Added measured checks for stable nickname input/feedback rectangles, gray validation text, gallery title/edit vertical centers, settings back/title centers, source processing y406, popup title y140 and result close/share centers.
+- Appearance tests cover selection persistence writer, immediate login variant change and storage failure preserving the previous choice. Native persistence uses existing path_provider and web uses existing web package; real-device storage was not exercised.
+- Changed-file Dart analysis: no issues. Full-folder analysis was stopped after stalling; no full-folder result claimed. Strict static audit and final build results recorded by tool output. Existing optional CupertinoIcons warning remains.
+- Widget images inspected for settings, result, empty gallery and nickname. Browser visual verification remains user-owned. Review used the saved 2026-11-18 Figma source, not a newly downloaded revision.
+
+- Follow-up nickname correction: 17 focused tests passed, including exact helper/counter top alignment at input bottom + 8px for valid and invalid values. Kept label and below-line counter as requested; no unrelated layout changes.
+
+## 2026-11-20 main integration
+
+- Integrated with main 0f51140, retaining other contributors' collection/server and person-selection functionality, deployment configuration and high-resolution assets.
+- Full combined suite: 60 tests passed, including person selection/crop mapping, collection layout, storage and latest auth/alignment checks.
+- Strict premium audit: 0 findings. Browser/device visual verification remains user-owned.
+- Fixed an existing missing-braces lint in the fake repository provider without changing behavior.
+- Flutter 3.44.4 full analyze: no issues. Release web build with the Pages base path and production API flags: passed. Existing optional CupertinoIcons font warning remains.

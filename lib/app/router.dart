@@ -17,10 +17,17 @@ import '../features/gallery/gallery_screen.dart';
 import '../features/gallery/photo_detail_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/settings/settings_screen.dart';
+import '../features/auth/auth_providers.dart';
+import '../features/auth/login_screen.dart';
+import '../features/auth/onboarding_screens.dart';
 
 /// 경로 이름. 화면에서 문자열을 직접 쓰지 말고 이 상수를 쓴다.
 abstract final class Routes {
   static const home = '/';
+  static const login = '/login';
+  static const onboardingNickname = '/onboarding/nickname';
+  static const onboardingTerms = '/onboarding/terms';
+  static const sessionExpired = '/session-expired';
   static const gallery = '/gallery';
   static const photoDetail = '/gallery/:id';
 
@@ -51,8 +58,21 @@ final _rootKey = GlobalKey<NavigatorState>();
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     navigatorKey: _rootKey,
-    initialLocation: Routes.home,
+    initialLocation: ref.read(authPreviewProvider) ? Routes.login : Routes.home,
     routes: [
+      GoRoute(path: Routes.login, builder: (_, __) => const LoginScreen()),
+      GoRoute(
+          path: Routes.onboardingNickname,
+          builder: (_, __) => const NicknameScreen()),
+      GoRoute(
+          path: Routes.onboardingTerms,
+          redirect: (_, __) => ref.read(onboardingNicknameProvider).isEmpty
+              ? Routes.onboardingNickname
+              : null,
+          builder: (_, __) => const TermsScreen()),
+      GoRoute(
+          path: Routes.sessionExpired,
+          builder: (_, __) => const SessionExpiredScreen()),
       // 탭 3개: 홈 · (촬영 버튼) · 갤러리
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => _TabShell(shell: shell),

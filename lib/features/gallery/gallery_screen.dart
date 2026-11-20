@@ -1,4 +1,5 @@
 import '../../core/widgets/micut_dialog.dart';
+import '../../core/widgets/miku_illustration.dart';
 import '../../core/widgets/micut_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,7 +12,6 @@ import '../../core/theme/typography.dart';
 import '../../core/widgets/micut_button.dart';
 import '../../core/widgets/photo_placeholder.dart';
 import '../../data/local/local_store.dart';
-import '../../core/widgets/miku_illust.dart';
 
 /// Figma 09 갤러리 / 09-1 빈 상태 / 09-2 편집 / 09-3 삭제 확인
 ///
@@ -76,9 +76,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
         titleTextStyle: _editing
             ? MiCutText.heading20Semibold
             : MiCutText.heading24Semibold,
-        title: Transform.translate(
-            offset: Offset(0, _editing ? 0 : -3.5),
-            child: Text(_editing ? '${_selected.length}장 선택' : '갤러리')),
+        title: Text(_editing ? '${_selected.length}장 선택' : '갤러리'),
         actions: [
           if (!_editing)
             TextButton(
@@ -217,27 +215,31 @@ class _Empty extends StatelessWidget {
               -(View.of(context).padding.top /
                           View.of(context).devicePixelRatio +
                       51 -
-                      83) /
+                      (70 +
+                          View.of(context).padding.bottom /
+                              View.of(context).devicePixelRatio)) /
                   2),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Figma 176:4939 — 미쿠_결과 없음 205px, 아래 16px 뒤 문구.
-              const MikuIllustImage(MikuIllust.empty, size: 205),
-              const SizedBox(height: Spacing.lg),
-              Text('아직 사진이 없어요', style: MiCutText.heading18Semibold),
-              const SizedBox(height: 36),
-              SizedBox(
-                width: 240,
-                child: MiCutButton(
-                  label: '사진 촬영하러 가기',
-                  solid: false,
-                  height: 48,
-                  onPressed: () => context.push(Routes.captureGuide),
-                ),
-              ),
-            ],
-          )),
+          child: SingleChildScrollView(
+              child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: Spacing.lg),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const MikuIllustration(MikuArtwork.empty),
+                      const SizedBox(height: Spacing.lg),
+                      Text('아직 사진이 없어요', style: MiCutText.heading18Semibold),
+                      const SizedBox(height: 36),
+                      SizedBox(
+                        width: 240,
+                        child: MiCutButton(
+                          label: '사진 촬영하러 가기',
+                          solid: false,
+                          height: 48,
+                          onPressed: () => context.push(Routes.captureGuide),
+                        ),
+                      ),
+                    ],
+                  )))),
     );
   }
 }

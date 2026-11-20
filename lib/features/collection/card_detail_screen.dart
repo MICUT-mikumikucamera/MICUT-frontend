@@ -311,7 +311,7 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
                             child: Text('날짜', style: MiCutText.cardLabel)),
                         const SizedBox(height: Spacing.md),
                         Text(current == null ? '-' : _fmt(current.acquiredAt),
-                            style: MiCutText.cardBody),
+                            style: MiCutText.cardDate),
                         const SizedBox(height: Spacing.xl),
                         SizedBox(
                             height: 25,

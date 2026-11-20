@@ -66,7 +66,9 @@ abstract final class MiCutColors {
   static const secondarySoft = pink50;
   static const onSecondarySoft = pink500;
   // Figma color/bg/danger/default → red/500.
+  static const success = Color(0xFF22C55E);
   static const danger = Color(0xFFEF4444);
+  static const borderDanger = Color(0xFF991B1B);
   static const bgDangerDefault = danger;
   static const onDanger = textInverse;
 

@@ -19,7 +19,7 @@ class BrandLogo extends StatelessWidget {
 
   static const _assets = {
     BrandLogoVariant.black: 'assets/brand/logo_wordmark_black.png',
-    BrandLogoVariant.cyan: 'assets/figma-export/logo.png',
+    BrandLogoVariant.cyan: 'assets/figma-export/logo-current.png',
     BrandLogoVariant.white: 'assets/brand/logo_wordmark_white.png',
     BrandLogoVariant.pink: 'assets/brand/logo_wordmark_pink.png',
   };

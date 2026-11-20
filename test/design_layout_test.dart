@@ -1,3 +1,8 @@
+import 'package:micut/features/auth/login_screen.dart';
+import 'package:micut/core/widgets/word_wrap_text.dart';
+import 'package:micut/core/widgets/miku_illustration.dart';
+import 'package:micut/features/auth/onboarding_screens.dart';
+import 'package:micut/features/auth/auth_providers.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -60,6 +65,10 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       for (final scale in [1.0, 1.5]) {
         for (final entry in <String, Widget>{
+          'login': const LoginScreen(),
+          'nickname': const NicknameScreen(),
+          'terms': const TermsScreen(),
+          'session-expired': const SessionExpiredScreen(),
           'guide': const CaptureGuideScreen(),
           'photo-detail': const PhotoDetailScreen(id: 'fixture'),
           'card-detail': const CardDetailScreen(id: 'v_sign'),
@@ -83,6 +92,7 @@ void main() {
           final key = GlobalKey();
           await tester.pumpWidget(ProviderScope(
               overrides: [
+                authPreviewProvider.overrideWithValue(true),
                 galleryProvider
                     .overrideWith((ref) async => entry.key.contains('detail')
                         ? [
@@ -106,6 +116,7 @@ void main() {
                   home: MediaQuery(
                       data: MediaQueryData(
                           size: Size(width, 844),
+                          disableAnimations: true,
                           textScaler: TextScaler.linear(scale)),
                       child: RepaintBoundary(
                           key: key,
@@ -120,6 +131,26 @@ void main() {
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull,
               reason: '${entry.key} width=$width scale=$scale');
+          if (entry.key == 'home') {
+            for (final artwork in [
+              MikuArtwork.capture,
+              MikuArtwork.collection
+            ]) {
+              final art = find.byWidgetPredicate(
+                  (w) => w is MikuIllustration && w.artwork == artwork);
+              final ink = find.ancestor(of: art, matching: find.byType(Ink));
+              final cardRect = tester.getRect(ink);
+              final artRect = tester.getRect(art);
+              expect(cardRect.contains(artRect.topLeft), isTrue);
+              expect(cardRect.contains(artRect.bottomRight), isTrue);
+              for (final text in find
+                  .descendant(of: ink, matching: find.byType(WordWrapText))
+                  .evaluate()) {
+                final textRect = tester.getRect(find.byWidget(text.widget));
+                expect(textRect.right, lessThan(artRect.left));
+              }
+            }
+          }
           if (width == 390 &&
               scale == 1 &&
               const bool.fromEnvironment('WRITE_PREVIEWS')) {

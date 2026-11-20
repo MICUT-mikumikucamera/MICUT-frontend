@@ -11,6 +11,7 @@ import 'package:micut/core/theme/colors.dart';
 import 'package:micut/core/widgets/micut_button.dart';
 import 'package:micut/core/widgets/micut_dialog.dart';
 import 'package:micut/core/widgets/micut_icon.dart';
+import 'package:micut/core/widgets/micut_loading.dart';
 import 'package:micut/core/widgets/photo_placeholder.dart';
 import 'package:micut/core/widgets/micut_tab_bar.dart';
 import 'package:micut/core/widgets/new_collection_overlay.dart';
@@ -84,7 +85,7 @@ void main() {
       (tester) async {
     tester.view.physicalSize = const Size(375, 812);
     tester.view.devicePixelRatio = 1;
-    tester.view.padding = FakeViewPadding(top: 57, bottom: 24);
+    tester.view.padding = const FakeViewPadding(top: 57, bottom: 24);
     addTearDown(tester.view.reset);
     final photos = List.generate(
         10,
@@ -105,7 +106,7 @@ void main() {
                     IconButton(
                         onPressed: () {},
                         padding: EdgeInsets.zero,
-                        alignment: Alignment.topCenter,
+                        alignment: Alignment.center,
                         icon:
                             const MiCutIcon(Icons.ios_share_outlined, size: 28))
                   ]
@@ -270,6 +271,20 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
       expect(tester.takeException(), isNull, reason: entry.key);
+      if (entry.key == '16-processing') {
+        expect(tester.getCenter(find.byType(MiCutLoading)).dy, closeTo(406, 1));
+      }
+      if (entry.key == '19-result') {
+        final close = find
+            .byWidgetPredicate((w) => w is MiCutIcon && w.icon == Icons.close);
+        final share = find.byWidgetPredicate(
+            (w) => w is MiCutIcon && w.icon == Icons.ios_share_outlined);
+        expect(
+            tester.getCenter(close).dy, closeTo(tester.getCenter(share).dy, 1));
+      }
+      if (entry.key == '20-new-collection') {
+        expect(tester.getTopLeft(find.text('신규 컬렉션 획득!')).dy, closeTo(140, 1));
+      }
       if (entry.key == '15-confirmation') {
         final rect = tester.getRect(find.byType(PhotoPlaceholder));
         expect(rect.left, 0);

@@ -4,7 +4,7 @@ import '../theme/colors.dart';
 import '../theme/spacing.dart';
 import '../theme/typography.dart';
 
-enum MiCutButtonType { primary, secondary, danger }
+enum MiCutButtonType { primary, secondary, tertiary, danger }
 
 /// Shared CTA. Modal confirmations can opt into a solid primary fill.
 class MiCutButton extends StatelessWidget {
@@ -17,6 +17,7 @@ class MiCutButton extends StatelessWidget {
       this.loading = false,
       this.onDark = false,
       this.icon,
+      this.leading,
       this.solid = true,
       this.height = Spacing.buttonHeight,
       this.radius = Spacing.radius16});
@@ -25,6 +26,7 @@ class MiCutButton extends StatelessWidget {
   final MiCutButtonType type;
   final bool expand, loading, onDark, solid;
   final IconData? icon;
+  final Widget? leading;
   final double height, radius;
 
   @override
@@ -36,6 +38,7 @@ class MiCutButton extends StatelessWidget {
         : switch (type) {
             MiCutButtonType.primary => MiCutColors.primary,
             MiCutButtonType.secondary => MiCutColors.bgSubtle,
+            MiCutButtonType.tertiary => MiCutColors.bgDefault,
             MiCutButtonType.danger => MiCutColors.danger,
           };
     final fg = !enabled
@@ -79,6 +82,10 @@ class MiCutButton extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
+                        if (leading != null) ...[
+                          leading!,
+                          const SizedBox(width: Spacing.ctaGap)
+                        ],
                         if (icon != null) ...[
                           MiCutIcon(icon, size: 18),
                           const SizedBox(width: Spacing.ctaGap)

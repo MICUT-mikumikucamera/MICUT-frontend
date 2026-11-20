@@ -7,7 +7,9 @@ class MiCutBackButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => IconButton(
         tooltip: '뒤로',
-        icon: const MiCutIcon.asset('back'),
+        padding: EdgeInsets.zero,
+        alignment: Alignment.center,
+        icon: const Center(child: MiCutIcon.asset('back', size: 24)),
         onPressed: () => Navigator.of(context).maybePop(),
       );
 }

@@ -162,7 +162,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
           IconButton(
             tooltip: '사진 공유',
             padding: EdgeInsets.zero,
-            alignment: Alignment.topCenter,
+            alignment: Alignment.center,
             icon: const MiCutIcon(Icons.ios_share_outlined, size: 28),
             onPressed: _imagePath == null
                 ? null

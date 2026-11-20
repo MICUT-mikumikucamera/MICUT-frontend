@@ -6,10 +6,18 @@ import 'core/services/photo_bytes.dart';
 import 'data/local/local_store.dart';
 import 'data/jobs/fake_job_repository.dart';
 import 'data/jobs/providers.dart';
+import 'features/auth/auth_providers.dart';
+import 'core/theme/appearance.dart';
 
 /// Browser entrypoint: session-only storage; real API requires MICUT_REAL_API.
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final appearance = await loadAppearance();
   runApp(ProviderScope(overrides: [
+    initialAppearanceProvider.overrideWithValue(appearance),
+    authPreviewProvider.overrideWithValue(const bool.fromEnvironment(
+        'MICUT_AUTH_PREVIEW',
+        defaultValue: !kUseRealApi)),
     localStoreProvider.overrideWithValue(BrowserPreviewStore()),
     if (!kUseRealApi)
       jobRepositoryProvider

@@ -114,25 +114,27 @@ class PhotoDetailScreen extends ConsumerWidget {
               top: false,
               child: SizedBox(
                 height: 120,
-                child: Row(
-                  children: [
-                    _Action(
-                      icon: Icons.ios_share,
-                      label: '공유',
-                      onTap: () => sharePhoto(context, item.path),
-                    ),
-                    _Action(
-                      icon: Icons.download_outlined,
-                      label: '사진첩에 저장',
-                      onTap: save,
-                    ),
-                    _Action(
-                      icon: Icons.delete_outline,
-                      label: '삭제',
-                      onTap: delete,
-                    ),
-                  ],
-                ),
+                child: Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Row(
+                      children: [
+                        _Action(
+                          icon: Icons.ios_share,
+                          label: '공유',
+                          onTap: () => sharePhoto(context, item.path),
+                        ),
+                        _Action(
+                          icon: Icons.download_outlined,
+                          label: '사진첩에 저장',
+                          onTap: save,
+                        ),
+                        _Action(
+                          icon: Icons.delete_outline,
+                          label: '삭제',
+                          onTap: delete,
+                        ),
+                      ],
+                    )),
               ),
             ),
           ),

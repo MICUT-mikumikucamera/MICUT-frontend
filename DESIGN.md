@@ -85,3 +85,57 @@ Bottom navigation is icon-only: labels remain accessible semantics but are not p
 
 Home logo left visible margin now matches the settings gear visible right margin: 30.25px (16px button inset + 12px centered-icon inset + 2.25px transparent PNG inset). The settings target position and card margins remain unchanged.
 Latest optical adjustment: move only the home logo 4px left, to a 26.25px left margin. Settings button retains its 16px right inset.
+
+
+## Figma refresh — 2026-11-18
+
+Source: browser-authorized export `../figma-source/review-2026-11-18/latest.fig`, decoded document and normalized diff. Eight new auth states; existing home, guide, processing, new collection and empty gallery art changes. Original standalone graphics exported from Figma are runtime assets; screenshots are verification only.
+
+Canonical ownership: MikuIllustration owns four source characters; MiCutLoading owns reduced-motion-aware processing animation; NewCollectionOverlay owns one-shot dismissal after three seconds. Shared MiCutButton adds white tertiary/leading graphic support. Auth screens reuse shared typography, colors, icons and buttons; OnboardingPage owns scrollable content and bottom action. Nickname rules own grapheme-aware 2–20 validation and counter; this explicit user decision supersedes Figma's conflicting 0/10 counter. Existing user corrections above remain authoritative.
+
+Auth UI preview is explicitly enabled with MICUT_AUTH_PREVIEW. Default entry remains home. No production authentication is simulated: AuthGateway is unconfigured until a real contract exists, legal links require HTTPS configuration, and session-expired is a presentation route awaiting real session integration. No legal copy was invented. Browser app verification remains user-owned; widget-rendered screenshots, automated workflows and web compilation are the validation scope.
+
+## UI-only authentication preview — 2026-11-19
+
+BrowserPreview now starts at login by default when MICUT_REAL_API is false; MICUT_AUTH_PREVIEW=false restores home entry. Native/default production entry is unchanged. Existing login/nickname/consent screens remain canonical. Preview full-view actions open LegalPreviewScreen, reusing OnboardingPage and shared tokens/buttons. It explicitly presents unavailable document content without inventing legal terms, calling external URLs, or persisting consent. Returning preserves the consent screen state. Actual production legal links still require configured HTTPS URLs.
+
+## Login appearance correction — 2026-11-19
+
+The user clarified that the dark/light Figma login frames are device appearance variants, not animation keyframes. LoginScreen now reads MediaQuery.platformBrightnessOf directly, selecting background artwork, gradient and foreground text on the first frame and when the system preference changes. Removed the 800ms timer and appearance transition; reduced motion no longer forces light mode. This overrides earlier dark-to-light interpretation. Other screens retain their existing styling.
+
+## Responsive copy, consent and home cards — 2026-11-19
+
+User corrections: onboarding headings/descriptions wrap between Korean words using shared WordWrapText; removed forced title line breaks and kept the nickname title's music mark with its preceding word. Original readable copy remains the accessibility label. TermsScreen adds an all-consent checkbox derived from both individual values; it toggles both and follows individual changes. Home feature cards reserve separate responsive text/art columns with positive padding and contain-fit artwork, replacing negative image offsets and overlap. Existing header/card margins and navigation are retained. These user corrections supersede earlier overlapping home artwork layout.
+
+## Figma alignment restoration and maximum artwork — 2026-11-19
+
+Reviewed original nodes 402:2542 (terms), 402:1274 (nickname), 402:2500 (login). Terms uses #F4F4F5 rounded rows (radius20, minimum height54, padding16, gap12), text and inline underlined full-view link on the left, 20px original check on the right (#A1A1AA unchecked / #22D3EE checked). Replaced the incorrect default CheckboxListTile layout. Explicit source title line breaks restored while WordWrapText still prevents syllable splits. User-requested all-consent follows the two source rows, preserving their order and placement. Source header toolbar51, title/description gap12, nickname content gap70 and terms gap80 restored. Bottom button stays 32px from bottom where safe-area permits. Login source tagline24 and logo-to-tagline gap20 restored.
+
+Home artwork no longer uses a percentage width cap: it occupies the maximum square that fits the card height minus 8px top/bottom, reserving measured minimum word width, 12px text gap and an 8px right inset. Text keeps a 20px left inset. This supersedes the earlier small artwork correction without reintroducing clipping/overlap.
+
+## 2026-11-20 remaining screen alignment audit
+
+Reference: the saved November 18 Figma export, not a fresh server revision. Compared capture guide/camera/confirmation/processing/failure/network/result/saved, gallery/empty/edit/delete, photo detail, collection/card detail/story, settings and shared dialogs with source geometry. Prior explicit user corrections remain authoritative.
+
+| Area | Result |
+| --- | --- |
+| Nickname (402:2716 / 402:2726) | Removed Material floating label and separate error/counter footer. Counter is beside the input above the underline; success/error feedback shares one position 8px below the line, 16px icon + 6px gap, gray 14px text. Error underline uses source #991B1B. 2–20 and composition validation retained. |
+| Result header | Removed topCenter from share action, matching close action center. |
+| Gallery header | Removed the old -3.5px title translation; title and edit action now share a center. |
+| Settings/shared back button | Explicit zero padding and centered 24px asset; title and icon centers tested. |
+| Empty gallery (176:4939) | Center compensation now uses the user-selected 70px tab content plus real bottom inset, replacing stale source 83px bar assumption. Source art/text/button gaps retained. |
+| Photo detail (176:4797) | Restored source action group vertical offset within the existing footer; no image fitting change. |
+| Card detail (176:4859) | Date uses source 18px line height, removing 6px extra before memo. Photo carousel and 24/32/12px gaps retained. |
+| Processing (432:3468) | Character centered on the viewport (source y406 at 812px), rather than the photo area. Motion preserved. |
+| New collection (177:7350) | Restored title frame top130/812 of viewport and source card gap. Scroll adaptation and three-second dismissal retained. |
+| Other inspected screens | Existing geometry retained where it matches or reflects an explicit user correction. No unrelated layout redesign. |
+
+User-added appearance selector is in Settings. System/light/dark applies only to the login screen, as explicitly confirmed. Save preference in native application-support storage or web localStorage and load before first render; default/fallback is system. This is not app-wide dark mode. No new package dependency.
+
+## Nickname feedback scope correction — 2026-11-20
+
+The user clarified that only the success helper should move upward and the error feedback should match the design. Keep the nickname label/input and the counter below the underline. Both success and error helpers now share a single row with that counter, 8px below the input, rather than giving success a second row. Error feedback uses a red status icon and gray text; validation and 2–20 rule unchanged. This supersedes the previous above-line counter change.
+
+## Main integration — 2026-11-20
+
+Merged the UI branch onto main 0f51140 while preserving server collection lookup, acquisition dates, local photo/memo association, person selection and crop-coordinate handling. Existing high-resolution character assets remain canonical; MikuIllustration maps capture artwork to miku-cheer.png. User-approved maximum artwork sizing, header alignment, nickname 2–20 validation/feedback, all-consent and login-only appearance settings remain in place. Existing Pages production API configuration is retained; no mock authentication is enabled in production.

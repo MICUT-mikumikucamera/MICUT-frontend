@@ -1,4 +1,6 @@
 import '../../core/widgets/micut_icon.dart';
+import '../../core/widgets/miku_illustration.dart';
+import '../../core/widgets/word_wrap_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,7 +11,6 @@ import '../../core/theme/spacing.dart';
 import '../../core/theme/typography.dart';
 import '../../core/widgets/brand_logo.dart';
 import '../../core/widgets/micut_icon_button.dart';
-import '../../core/widgets/miku_illust.dart';
 import '../../core/widgets/photo_placeholder.dart';
 import '../../data/local/local_store.dart';
 
@@ -54,31 +55,23 @@ class HomeScreen extends ConsumerWidget {
                   children: [
                     _FeatureTile(
                       label: '촬영하기',
+                      artwork: MikuArtwork.capture,
                       description: '미쿠와 사진을 찍어보세요',
                       height: 180,
                       background:
                           'assets/figma-export/home-capture-background.png',
                       icon: Icons.photo_camera_outlined,
-                      // Figma 206:7720 — x 167.5, y 4, 187px (오른쪽으로 20px 넘침)
-                      illust: MikuIllust.cheer,
-                      illustSize: 187,
-                      illustTop: 4,
-                      illustRight: -20,
                       onTap: () => context.push(Routes.captureGuide),
                     ),
                     const SizedBox(height: Spacing.lg),
                     _FeatureTile(
                       label: '컬렉션',
+                      artwork: MikuArtwork.collection,
                       description: '함께한 추억 보기',
                       height: 160,
                       background:
                           'assets/figma-export/home-collection-background.png',
                       icon: Icons.style_outlined,
-                      // Figma 176:4762 — x 167.6, y -21, 225px (위·오른쪽으로 넘쳐 잘림)
-                      illust: MikuIllust.collection,
-                      illustSize: 225,
-                      illustTop: -21,
-                      illustRight: -57,
                       onTap: () => context.push(Routes.collection),
                     ),
                     const SizedBox(height: Spacing.screenH),
@@ -154,17 +147,13 @@ class _FeatureTile extends StatelessWidget {
       required this.description,
       required this.icon,
       required this.background,
+      required this.artwork,
       required this.height,
-      required this.illust,
-      required this.illustSize,
-      required this.illustTop,
-      required this.illustRight,
       required this.onTap});
   final String label, description, background;
   final IconData icon;
+  final MikuArtwork artwork;
   final double height;
-  final MikuIllust illust;
-  final double illustSize, illustTop, illustRight;
   final VoidCallback onTap;
 
   @override
@@ -174,42 +163,64 @@ class _FeatureTile extends StatelessWidget {
         child: Ink.image(
           image: AssetImage(background),
           fit: BoxFit.fill,
-          child: Stack(
-              fit: StackFit.passthrough,
-              clipBehavior: Clip.none,
-              children: [
-                Positioned(
-                    top: illustTop,
-                    right: illustRight,
-                    child: IgnorePointer(
-                        child: MikuIllustImage(illust, size: illustSize))),
-                InkWell(
-                  onTap: onTap,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: height),
-                    child: Padding(
-                      padding: const EdgeInsets.all(Spacing.screenH),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(height: height - 130),
-                          MiCutIcon(icon,
-                              size: 30, color: MiCutColors.textInverse),
-                          const SizedBox(height: Spacing.s6),
-                          Text(label,
-                              style: MiCutText.heading20Semibold
-                                  .copyWith(color: MiCutColors.textInverse)),
-                          const SizedBox(height: Spacing.s6),
-                          Text(description,
-                              style: MiCutText.detail14Regular
-                                  .copyWith(color: MiCutColors.textInverse)),
-                        ],
+          child: InkWell(
+            onTap: onTap,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: height),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(Spacing.screenH, 8, 8, 8),
+                child: LayoutBuilder(builder: (context, constraints) {
+                  // Reserve only enough width to keep each word readable;
+                  // give the illustration all remaining space up to card height.
+                  var textWidth = 30.0;
+                  for (final entry in [
+                    (label, MiCutText.heading20Semibold),
+                    (description, MiCutText.detail14Regular)
+                  ]) {
+                    for (final word in entry.$1.split(' ')) {
+                      final painter = TextPainter(
+                          text: TextSpan(text: word, style: entry.$2),
+                          textDirection: Directionality.of(context),
+                          textScaler: MediaQuery.textScalerOf(context))
+                        ..layout();
+                      if (painter.width > textWidth) textWidth = painter.width;
+                      painter.dispose();
+                    }
+                  }
+                  final artSize = (constraints.maxWidth - textWidth - 12)
+                      .clamp(0.0, height - 16);
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                MiCutIcon(icon,
+                                    size: 30, color: MiCutColors.textInverse),
+                                const SizedBox(height: Spacing.s6),
+                                WordWrapText(label,
+                                    style: MiCutText.heading20Semibold.copyWith(
+                                        color: MiCutColors.textInverse)),
+                                const SizedBox(height: Spacing.s6),
+                                WordWrapText(description,
+                                    style: MiCutText.detail14Regular.copyWith(
+                                        color: MiCutColors.textInverse)),
+                              ],
+                            )),
                       ),
-                    ),
-                  ),
-                ),
-              ]),
+                      const SizedBox(width: 12),
+                      IgnorePointer(
+                          child: MikuIllustration(artwork, size: artSize)),
+                    ],
+                  );
+                }),
+              ),
+            ),
+          ),
         ),
       );
 }
