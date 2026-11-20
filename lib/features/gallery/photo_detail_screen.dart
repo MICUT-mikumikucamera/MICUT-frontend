@@ -1,9 +1,16 @@
+import '../../core/widgets/micut_dialog.dart';
+import '../../core/widgets/micut_icon.dart';
+import '../../core/widgets/micut_back_button.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gal/gal.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/colors.dart';
+import '../../core/services/photo_share.dart';
+import '../../core/services/photo_bytes.dart';
+import '../../core/services/photo_download.dart';
 import '../../core/theme/spacing.dart';
 import '../../core/theme/typography.dart';
 import '../../core/widgets/photo_placeholder.dart';
@@ -14,30 +21,50 @@ class PhotoDetailScreen extends ConsumerWidget {
   const PhotoDetailScreen({super.key, required this.id});
   final String id;
 
+  String _date(DateTime d) =>
+      '${d.year}년 ${d.month.toString().padLeft(2, '0')}월 ${d.day.toString().padLeft(2, '0')}일';
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final item = ref.watch(galleryProvider).valueOrNull?.where((e) => e.id == id).firstOrNull;
+    final item = ref
+        .watch(galleryProvider)
+        .valueOrNull
+        ?.where((e) => e.id == id)
+        .firstOrNull;
 
     if (item == null) {
       return Scaffold(
-        appBar: AppBar(),
-        body: Center(child: Text('사진을 찾을 수 없어요', style: MiCutText.body)),
+        appBar: AppBar(
+          leading: const MiCutBackButton(),
+          leadingWidth: 64,
+        ),
       );
     }
 
     Future<void> save() async {
       try {
+        if (kIsWeb) {
+          final bytes = await readPhotoBytes(item.path);
+          if (!context.mounted) return;
+          await downloadPhoto(bytes, 'micut-${item.id}.jpg');
+          if (context.mounted) {
+            debugPrint('Photo action state changed.');
+          }
+          return;
+        }
         await Gal.putImage(item.path);
         await ref.read(localStoreProvider).markSaved(item.id);
         ref.invalidate(galleryProvider);
         if (context.mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(const SnackBar(content: Text('사진첩에 저장했어요')));
+          debugPrint('Photo saved to album.');
         }
-      } on GalException catch (e) {
+      } on GalException {
         if (context.mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text('저장하지 못했어요 (${e.type.name})')));
+          debugPrint('Photo action state changed.');
+        }
+      } catch (_) {
+        if (context.mounted) {
+          debugPrint('Photo action state changed.');
         }
       }
     }
@@ -45,65 +72,69 @@ class PhotoDetailScreen extends ConsumerWidget {
     Future<void> delete() async {
       final ok = await showDialog<bool>(
         context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('사진 1장을 삭제할까요?'),
-          content: const Text('사진첩에 저장하지 않은 이미지는 사라져요'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: TextButton.styleFrom(foregroundColor: MiCutColors.danger),
-              child: const Text('삭제'),
-            ),
-          ],
-        ),
+        barrierColor: MiCutColors.modalDim,
+        useSafeArea: false,
+        builder: (ctx) => MiCutDialog(
+            padding: 25,
+            title: '사진 1장을 삭제할까요?',
+            message: '사진첩에 저장하지 않은 이미지는 사라져요',
+            confirmLabel: '삭제',
+            danger: true,
+            onConfirm: () => Navigator.pop(ctx, true)),
       );
-      if (ok != true) return;
-      await ref.read(localStoreProvider).delete([item.id]);
-      ref.invalidate(galleryProvider);
-      ref.invalidate(collectedCardIdsProvider);
-      if (context.mounted) context.pop();
+      if (ok != true || !context.mounted) return;
+      try {
+        await ref.read(localStoreProvider).delete([item.id]);
+        ref.invalidate(galleryProvider);
+        ref.invalidate(collectedCardIdsProvider);
+        if (context.mounted) context.pop();
+      } catch (_) {
+        if (context.mounted) {
+          debugPrint('Photo action state changed.');
+        }
+      }
     }
 
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(
+          leading: const MiCutBackButton(),
+          leadingWidth: 64,
+          title: Text(_date(item.createdAt))),
       body: Column(
         children: [
           Expanded(
             child: Center(
-              child: PhotoPlaceholder(path: item.path, radius: 0, fit: BoxFit.contain),
+              child: PhotoPlaceholder(
+                  path: item.path, radius: 0, fit: BoxFit.cover),
             ),
           ),
           Container(
-            decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: MiCutColors.border)),
-            ),
+            color: MiCutColors.bgDefault,
             child: SafeArea(
               top: false,
               child: SizedBox(
-                height: 90,
-                child: Row(
-                  children: [
-                    _Action(
-                      icon: Icons.ios_share,
-                      label: '공유',
-                      onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('공유는 다음 단계에서'))),
-                    ),
-                    _Action(
-                      icon: item.savedToAlbum ? Icons.check_circle_rounded : Icons.download_outlined,
-                      label: item.savedToAlbum ? '저장됨' : '사진첩에 저장',
-                      onTap: item.savedToAlbum ? null : save,
-                      done: item.savedToAlbum,
-                    ),
-                    _Action(
-                      icon: Icons.delete_outline,
-                      label: '삭제',
-                      onTap: delete,
-                      danger: true,
-                    ),
-                  ],
-                ),
+                height: 120,
+                child: Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Row(
+                      children: [
+                        _Action(
+                          icon: Icons.ios_share,
+                          label: '공유',
+                          onTap: () => sharePhoto(context, item.path),
+                        ),
+                        _Action(
+                          icon: Icons.download_outlined,
+                          label: '사진첩에 저장',
+                          onTap: save,
+                        ),
+                        _Action(
+                          icon: Icons.delete_outline,
+                          label: '삭제',
+                          onTap: delete,
+                        ),
+                      ],
+                    )),
               ),
             ),
           ),
@@ -118,33 +149,24 @@ class _Action extends StatelessWidget {
     required this.icon,
     required this.label,
     this.onTap,
-    this.danger = false,
-    this.done = false,
   });
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
-  final bool danger;
-  final bool done;
 
   @override
   Widget build(BuildContext context) {
-    final color = done
-        ? MiCutColors.primaryStrong
-        : onTap == null
-            ? MiCutColors.textHint
-            : danger
-                ? MiCutColors.danger
-                : MiCutColors.textPrimary;
+    final color =
+        onTap == null ? MiCutColors.textHint : MiCutColors.textPrimary;
     return Expanded(
       child: InkWell(
         onTap: onTap,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color),
-            const SizedBox(height: Spacing.xs),
-            Text(label, style: MiCutText.label.copyWith(color: color)),
+            MiCutIcon(icon, color: color),
+            const SizedBox(height: Spacing.s6),
+            Text(label, style: MiCutText.label12Medium.copyWith(color: color)),
           ],
         ),
       ),

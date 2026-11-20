@@ -54,27 +54,53 @@ class JobResult {
       );
 }
 
+class CropRegion {
+  const CropRegion(
+      {required this.x,
+      required this.y,
+      required this.width,
+      required this.height});
+  final int x, y, width, height;
+  Map<String, dynamic> toJson() =>
+      {'x': x, 'y': y, 'width': width, 'height': height};
+  factory CropRegion.fromJson(Map<String, dynamic> j) => CropRegion(
+      x: j['x'] as int,
+      y: j['y'] as int,
+      width: j['width'] as int,
+      height: j['height'] as int);
+}
+
 class CaptureInfo {
   const CaptureInfo({
     required this.w,
     required this.h,
     required this.rotation,
     this.fx,
+    this.crop,
   });
 
   final int w;
   final int h;
   final int rotation;
   final double? fx;
+  final CropRegion? crop;
 
-  Map<String, dynamic> toJson() =>
-      {'w': w, 'h': h, 'rotation': rotation, 'fx': fx};
+  Map<String, dynamic> toJson() => {
+        'w': w,
+        'h': h,
+        'rotation': rotation,
+        'fx': fx,
+        if (crop != null) 'crop': crop!.toJson()
+      };
 
   factory CaptureInfo.fromJson(Map<String, dynamic> j) => CaptureInfo(
         w: j['w'] as int,
         h: j['h'] as int,
         rotation: j['rotation'] as int,
         fx: (j['fx'] as num?)?.toDouble(),
+        crop: j['crop'] == null
+            ? null
+            : CropRegion.fromJson(j['crop'] as Map<String, dynamic>),
       );
 }
 
@@ -101,8 +127,7 @@ class Job {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  bool get isTerminal =>
-      status == JobStatus.done || status == JobStatus.failed;
+  bool get isTerminal => status == JobStatus.done || status == JobStatus.failed;
 
   factory Job.fromJson(Map<String, dynamic> j) => Job(
         jobId: j['job_id'] as String,

@@ -1,4 +1,6 @@
-import 'dart:io';
+import '../../features/capture/capture_crop.dart';
+import 'package:cross_file/cross_file.dart';
+import '../../core/services/photo_bytes.dart';
 import 'dart:math';
 
 import 'job.dart';
@@ -22,11 +24,11 @@ class FakeJobRepository extends JobRepository {
   final Duration processingDelay;
 
   final _jobs = <String, Job>{};
-  final _photos = <String, File>{};
+  final _photos = <String, String>{};
   final _rand = Random();
 
   @override
-  Future<Job> createJob(File photo, CaptureInfo capture) async {
+  Future<Job> createJob(XFile photo, CaptureInfo capture) async {
     await Future<void>.delayed(const Duration(milliseconds: 400));
     final now = DateTime.now();
     final id = 'j_${_date(now)}_${_randomHex(12)}';
@@ -40,7 +42,9 @@ class FakeJobRepository extends JobRepository {
       updatedAt: now,
     );
     _jobs[id] = job;
-    _photos[id] = photo;
+    final bytes = await photo.readAsBytes();
+    _photos[id] = photoDataUri(
+        capture.crop == null ? bytes : applyCaptureCrop(bytes, capture.crop!));
     _schedule(id);
     return job;
   }
@@ -86,20 +90,19 @@ class FakeJobRepository extends JobRepository {
     }
   }
 
-  /// Fake 는 원본 파일 경로를 그대로 돌려준다 (합성 전 사진이 결과로 보임).
-  /// 실제 합성 느낌을 내려면 assets/samples/ 에 샘플을 넣고 여기서 바꿔치기.
+  /// Preview preserves the captured bytes; it does not create a synthetic photo.
   @override
   String resolveImageUrl(String path) {
     final id = path.split('/').last.split('.').first;
-    return _photos[id]?.path ?? path;
+    return _photos[id] ?? path;
   }
 
   void _schedule(String id, {bool forceSuccess = false}) {
     Future<void>.delayed(const Duration(milliseconds: 800), () {
       final j = _jobs[id];
       if (j == null) return;
-      _jobs[id] = j.copyWith(
-          status: JobStatus.processing, updatedAt: DateTime.now());
+      _jobs[id] =
+          j.copyWith(status: JobStatus.processing, updatedAt: DateTime.now());
     });
     Future<void>.delayed(processingDelay, () {
       final j = _jobs[id];
@@ -110,8 +113,8 @@ class FakeJobRepository extends JobRepository {
             status: JobStatus.done,
             result: JobResult(
               imageUrl: '/results/$id.jpg',
-              tags: const ['indoor', 'day'],
-              cardIds: const ['001'],
+              tags: const [],
+              cardIds: const [],
             ),
             updatedAt: DateTime.now(),
           ),

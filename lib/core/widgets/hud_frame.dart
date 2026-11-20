@@ -54,7 +54,8 @@ class _CornersPainter extends CustomPainter {
       ..color = color
       ..strokeWidth = thickness
       ..strokeCap = StrokeCap.square;
-    final r = Rect.fromLTWH(inset, inset, size.width - inset * 2, size.height - inset * 2);
+    final r = Rect.fromLTWH(
+        inset, inset, size.width - inset * 2, size.height - inset * 2);
     final l = length;
     // TL
     canvas.drawLine(r.topLeft, r.topLeft + Offset(l, 0), p);
@@ -72,7 +73,10 @@ class _CornersPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_CornersPainter old) =>
-      old.color != color || old.length != length || old.thickness != thickness || old.inset != inset;
+      old.color != color ||
+      old.length != length ||
+      old.thickness != thickness ||
+      old.inset != inset;
 }
 
 /// "HUD / 1 AF Focus Box" — 가운데 십자 + 네 모서리. 처리 중 화면의 포커스 애니메이션용.
@@ -123,7 +127,9 @@ class _CrossPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()..color = color..strokeWidth = 1;
+    final p = Paint()
+      ..color = color
+      ..strokeWidth = 1;
     final c = size.center(Offset.zero);
     canvas.drawLine(Offset(0, c.dy), Offset(size.width, c.dy), p);
     canvas.drawLine(Offset(c.dx, 0), Offset(c.dx, size.height), p);
@@ -135,7 +141,11 @@ class _CrossPainter extends CustomPainter {
 
 /// "HUD / 4 Micro Text" 의 REC 점 + 작은 상태 텍스트. 예: `HudStatus(text: 'ANALYZING SCENE')`
 class HudStatus extends StatelessWidget {
-  const HudStatus({super.key, required this.text, this.blinking = true, this.color = MiCutColors.hud});
+  const HudStatus(
+      {super.key,
+      required this.text,
+      this.blinking = true,
+      this.color = MiCutColors.hud});
   final String text;
   final bool blinking;
   final Color color;
@@ -163,7 +173,8 @@ class _Dot extends StatefulWidget {
 }
 
 class _DotState extends State<_Dot> with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+  late final _c = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 900));
 
   @override
   void initState() {

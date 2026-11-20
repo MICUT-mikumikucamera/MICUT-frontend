@@ -1,26 +1,31 @@
-import 'dart:io';
+import '../../core/theme/colors.dart';
+import '../../core/widgets/micut_dialog.dart';
+import '../../core/widgets/micut_icon.dart';
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gal/gal.dart';
 import 'package:go_router/go_router.dart';
-import 'package:http/http.dart' as http;
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
+import '../../core/services/photo_bytes.dart';
+import '../../core/services/photo_download.dart';
+import '../../core/services/photo_share.dart';
+import '../../core/widgets/new_collection_overlay.dart';
+import '../../data/local/poses.dart';
 
 import '../../app/router.dart';
-import '../../core/theme/colors.dart';
+
 import '../../core/theme/spacing.dart';
-import '../../core/theme/typography.dart';
+
 import '../../core/widgets/micut_button.dart';
-import '../../core/widgets/photo_placeholder.dart';
+import 'capture_view.dart';
 import '../../data/jobs/job.dart';
 import '../../data/jobs/providers.dart';
 import '../../data/local/local_store.dart';
 
 /// Figma 06 결과 → 07 저장 완료 (같은 화면, 버튼/토스트만 바뀜)
 ///
-/// 다크 월드에서 라이트 월드로 복귀. 사진이 주인공이라 장식은 AI 태그 칩 정도만.
+/// 결과 사진과 흰색 안내 영역. 저장 성공 상태는 실제 저장 결과를 따른다.
 class ResultScreen extends ConsumerStatefulWidget {
   const ResultScreen({super.key, required this.jobId});
   final String jobId;
@@ -34,6 +39,10 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
   String? _imagePath; // 로컬 경로 또는 URL
   bool _saving = false;
   bool _saved = false;
+  bool _loadFailed = false;
+  GalleryItem? _galleryItem;
+  bool _writtenToAlbum = false;
+  bool _showSavedBubble = false;
 
   @override
   void initState() {
@@ -42,154 +51,150 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
   }
 
   Future<void> _load() async {
-    final repo = ref.read(jobRepositoryProvider);
-    final job = await repo.getJob(widget.jobId);
-    if (!mounted) return;
-    setState(() {
-      _job = job;
-      _imagePath = job.result == null ? null : repo.resolveImageUrl(job.result!.imageUrl);
-    });
+    try {
+      final repo = ref.read(jobRepositoryProvider);
+      final job = await repo.getJob(widget.jobId);
+      if (!mounted) return;
+      setState(() {
+        _job = job;
+        _imagePath = job.result == null
+            ? null
+            : repo.resolveImageUrl(job.result!.imageUrl);
+        _loadFailed = job.result == null;
+      });
+      await _showNewCollection(job);
+    } catch (_) {
+      if (mounted) setState(() => _loadFailed = true);
+    }
   }
 
-  /// 결과를 로컬 파일로 확보 (URL이면 내려받기).
-  Future<File> _localFile() async {
-    final path = _imagePath!;
-    if (!path.startsWith('http')) return File(path);
-    final res = await http.get(Uri.parse(path));
-    final dir = await getTemporaryDirectory();
-    final f = File(p.join(dir.path, '${widget.jobId}.jpg'));
-    await f.writeAsBytes(res.bodyBytes);
-    return f;
+  Future<void> _showNewCollection(Job job) async {
+    final ids = job.result?.cardIds ?? const <String>[];
+    if (ids.isEmpty) return;
+    final collected = await ref.read(localStoreProvider).collectedCardIds();
+    final newPoses =
+        kPoses.where((p) => ids.contains(p.id) && !collected.contains(p.id));
+    if (!mounted || newPoses.isEmpty) return;
+    final pose = newPoses.first;
+    await showDialog<void>(
+      context: context,
+      barrierColor: MiCutColors.modalDim,
+      useSafeArea: false,
+      barrierLabel: '컬렉션 안내 닫기',
+      builder: (dialogContext) => NewCollectionOverlay(
+          number: pose.number,
+          name: pose.name,
+          imagePath: _imagePath,
+          onClose: () => Navigator.of(dialogContext).pop()),
+    );
   }
 
   Future<void> _save() async {
-    if (_imagePath == null) return;
+    if (_imagePath == null || _saving || _saved) return;
     setState(() => _saving = true);
     try {
-      final f = await _localFile();
       final store = ref.read(localStoreProvider);
-      final item = await store.addFromFile(f, cardIds: _job?.result?.cardIds ?? const []);
-      await Gal.putImage(item.path);
-      await store.markSaved(item.id);
+      final bytes = await readPhotoBytes(_imagePath!);
+      if (kIsWeb) {
+        await downloadPhoto(bytes, 'micut-${widget.jobId}.jpg');
+      } else if (!_writtenToAlbum) {
+        await Gal.putImageBytes(bytes, name: 'micut-${widget.jobId}');
+        _writtenToAlbum = true;
+      }
+      // Register collection progress only after the save action succeeds.
+      final item = _galleryItem ??= await store.addFromBytes(bytes,
+          cardIds: _job?.result?.cardIds ?? const []);
+      if (!kIsWeb) await store.markSaved(item.id);
       ref.invalidate(galleryProvider);
       ref.invalidate(collectedCardIdsProvider);
       if (!mounted) return;
       setState(() => _saved = true);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('사진첩에 저장했어요')));
-    } on GalException catch (e) {
+      if (!kIsWeb) {
+        setState(() => _showSavedBubble = true);
+        Future<void>.delayed(const Duration(seconds: 3), () {
+          if (mounted) setState(() => _showSavedBubble = false);
+        });
+      }
+    } on GalException {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('사진첩 저장 실패 (${e.type.name})')));
+        debugPrint('Photo action state changed.');
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('저장하지 못했어요')));
+        debugPrint('Photo action state changed.');
       }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final tags = _job?.result?.tags ?? const <String>[];
-    final newCards = _job?.result?.cardIds ?? const <String>[];
+  Future<void> _leave(String route) async {
+    if (_saving) return;
+    if (!_saved && _imagePath != null) {
+      final leave = await showDialog<bool>(
+        context: context,
+        barrierColor: MiCutColors.modalDim,
+        useSafeArea: false,
+        builder: (ctx) => MiCutDialog(
+            title: '저장하지 않고 나갈까요?',
+            message: '사진을 저장하지 않으면 컬렉션에 등록되지 않아요.',
+            confirmLabel: '확인',
+            danger: true,
+            onConfirm: () => Navigator.pop(ctx, true)),
+      );
+      if (leave != true || !mounted) return;
+    }
+    if (mounted) context.go(route);
+  }
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => context.go(Routes.home),
-        ),
-        actions: [
-          if (_saved)
-            IconButton(icon: const Icon(Icons.ios_share), onPressed: () {}),
+  @override
+  Widget build(BuildContext context) => CaptureView(
+        photoPath: _imagePath,
+        topActions: [
+          IconButton(
+            tooltip: '사진 공유',
+            padding: EdgeInsets.zero,
+            alignment: Alignment.center,
+            icon: const MiCutIcon(Icons.ios_share_outlined, size: 28),
+            onPressed: _imagePath == null
+                ? null
+                : () => sharePhoto(context, _imagePath!),
+          )
         ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: _imagePath == null
-                ? const Center(child: CircularProgressIndicator())
-                : PhotoPlaceholder(
-                    path: _imagePath,
-                    radius: 0,
-                    fit: BoxFit.contain,
-                    width: double.infinity,
-                  ),
-          ),
-          if (tags.isNotEmpty || newCards.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(Spacing.screenH, Spacing.lg, Spacing.screenH, 0),
-              child: Wrap(
-                spacing: Spacing.sm,
-                runSpacing: Spacing.sm,
-                children: [
-                  for (final t in tags) _Tag(text: t),
-                  for (final c in newCards) _Tag(text: '카드 #$c 획득', accent: true),
-                ],
-              ),
-            ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.all(Spacing.screenH),
-              child: Row(
-                children: [
-                  Expanded(
+        processing: _imagePath == null && !_loadFailed,
+        message: _loadFailed
+            ? '네트워크 연결을 확인해 주세요.'
+            : _imagePath == null
+                ? ''
+                : '생성 완료!',
+        onClose: _saving ? null : () => _leave(Routes.home),
+        actionNotice: _showSavedBubble ? '사진첩에 저장했어요' : null,
+        actions: _loadFailed
+            ? MiCutButton(
+                label: '재시도',
+                type: MiCutButtonType.secondary,
+                onPressed: () {
+                  setState(() => _loadFailed = false);
+                  _load();
+                })
+            : Row(children: [
+                Expanded(
                     child: MiCutButton(
-                      label: '다시 찍기',
-                      type: MiCutButtonType.secondary,
-                      onPressed: () => context.pushReplacement(Routes.captureCamera),
-                    ),
-                  ),
-                  const SizedBox(width: Spacing.sm),
-                  Expanded(
-                    child: _saved
-                        ? MiCutButton(
-                            label: '갤러리 보기',
-                            icon: Icons.photo_library_rounded,
-                            onPressed: () => context.go(Routes.gallery),
-                          )
-                        : MiCutButton(
-                            label: '사진첩에 저장',
-                            icon: Icons.download_rounded,
-                            loading: _saving,
-                            onPressed: _imagePath == null ? null : _save,
-                          ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Tag extends StatelessWidget {
-  const _Tag({required this.text, this.accent = false});
-  final String text;
-  final bool accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.xs),
-      decoration: BoxDecoration(
-        color: accent ? MiCutColors.secondarySoft : MiCutColors.primarySoft,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        text,
-        style: MiCutText.label.copyWith(
-          color: accent ? MiCutColors.onSecondarySoft : MiCutColors.primaryStrong,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
+                        label: '다시 찍기',
+                        type: MiCutButtonType.secondary,
+                        onPressed: _saving
+                            ? null
+                            : () => _leave(Routes.captureCamera))),
+                const SizedBox(width: Spacing.md),
+                Expanded(
+                    child: MiCutButton(
+                        label: _saved ? '갤러리 보기' : '저장',
+                        loading: _saving,
+                        onPressed: _saving || _imagePath == null
+                            ? null
+                            : _saved
+                                ? () => context.go(Routes.gallery)
+                                : _save)),
+              ]),
+      );
 }

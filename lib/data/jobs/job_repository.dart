@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:cross_file/cross_file.dart';
 
 import 'job.dart';
 
@@ -6,7 +6,7 @@ import 'job.dart';
 /// 화면은 Fake 인지 Api 인지 몰라야 한다.
 abstract class JobRepository {
   /// 사진 업로드 → job 생성. 업로드 실패는 [UploadException].
-  Future<Job> createJob(File photo, CaptureInfo capture);
+  Future<Job> createJob(XFile photo, CaptureInfo capture);
 
   /// 상태 조회.
   Future<Job> getJob(String jobId);

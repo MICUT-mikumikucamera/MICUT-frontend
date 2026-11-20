@@ -11,8 +11,8 @@ import 'job_repository.dart';
 ///
 /// 에뮬레이터에서 PC의 localhost 는 10.0.2.2.
 const bool kUseRealApi = bool.fromEnvironment('MICUT_REAL_API');
-const String kApiBaseUrl =
-    String.fromEnvironment('MICUT_API_URL', defaultValue: 'http://10.0.2.2:8000');
+const String kApiBaseUrl = String.fromEnvironment('MICUT_API_URL',
+    defaultValue: 'http://10.0.2.2:8000');
 
 final jobRepositoryProvider = Provider<JobRepository>((ref) {
   if (kUseRealApi) return ApiJobRepository(baseUrl: kApiBaseUrl);

@@ -1,24 +1,43 @@
-import 'dart:io';
+import '../../core/widgets/micut_icon.dart';
+import '../../core/widgets/micut_dialog.dart';
+import 'dart:async';
 
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../app/router.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/spacing.dart';
 import '../../core/theme/typography.dart';
 import '../../core/widgets/dark_world.dart';
-import '../../core/widgets/hud_frame.dart';
-import 'capture_guide_screen.dart';
+import 'capture_crop.dart';
+import 'capture_option_picker.dart';
 
-/// Figma 02 촬영 + 03 사진 선택(앨범 버튼 → image_picker)
-///
-/// 다크 월드. 프리뷰 위에 로고의 뷰파인더 코너 HUD, 안내 바는 시안 면 + 검정 글자,
-/// 셔터는 흰 원 + 시안 링.
+enum CaptureRatio {
+  portrait('4:3', 3 / 4),
+  square('1:1', 1),
+  tall('16:9', 9 / 16);
+
+  const CaptureRatio(this.label, this.value);
+  final String label;
+  final double value;
+}
+
+CameraController _makeController(CameraDescription description) =>
+    CameraController(description, ResolutionPreset.high, enableAudio: false);
+
 class CameraScreen extends StatefulWidget {
-  const CameraScreen({super.key});
+  const CameraScreen(
+      {super.key,
+      this.cameraLoader = availableCameras,
+      this.controllerFactory = _makeController});
+  final Future<List<CameraDescription>> Function() cameraLoader;
+  final CameraController Function(CameraDescription) controllerFactory;
 
   @override
   State<CameraScreen> createState() => _CameraScreenState();
@@ -27,213 +46,387 @@ class CameraScreen extends StatefulWidget {
 class _CameraScreenState extends State<CameraScreen>
     with WidgetsBindingObserver {
   CameraController? _controller;
-  String? _error;
+  List<CameraDescription> _cameras = [];
+  CameraDescription? _selected;
+  Future<void> _cameraTask = Future.value();
+  int _generation = 0;
+  bool _active = true;
+  bool _changing = true;
   bool _busy = false;
-  int _timerSec = 0; // 0 / 3 / 10
+  bool _permissionDialogOpen = false;
+  bool _flashSupported = true;
+  FlashMode _flash = FlashMode.off;
+  CaptureRatio _ratio = CaptureRatio.portrait;
+  int _timerSec = 0;
   int _countdown = 0;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _init();
+    _openCamera();
   }
 
-  Future<void> _init() async {
-    try {
-      final cams = await availableCameras();
-      if (cams.isEmpty) {
-        setState(() => _error = '사용할 수 있는 카메라가 없어요');
-        return;
+  bool _current(int generation) =>
+      mounted && _active && generation == _generation;
+
+  Future<void> _openCamera([CameraDescription? requested]) {
+    final generation = ++_generation;
+    setState(() {
+      _changing = true;
+    });
+    _cameraTask = _cameraTask.then((_) async {
+      if (!_current(generation)) return;
+      CameraController? candidate;
+      try {
+        final previous = _controller;
+        setState(() => _controller = null);
+        await previous?.dispose();
+        if (!_current(generation)) return;
+        if (_cameras.isEmpty) _cameras = await widget.cameraLoader();
+        if (!_current(generation)) return;
+        if (_cameras.isEmpty) {
+          throw CameraException('NoCamera', '사용할 수 있는 카메라가 없어요');
+        }
+        final selected = requested ??
+            _selected ??
+            _cameras.firstWhere(
+                (camera) => camera.lensDirection == CameraLensDirection.back,
+                orElse: () => _cameras.first);
+        candidate = widget.controllerFactory(selected);
+        await candidate.initialize();
+        if (!_current(generation)) {
+          await candidate.dispose();
+          return;
+        }
+        var flashSupported = true;
+        var appliedFlash = _flash;
+        try {
+          await candidate.setFlashMode(appliedFlash);
+        } on CameraException {
+          appliedFlash = FlashMode.off;
+          try {
+            await candidate.setFlashMode(FlashMode.off);
+          } on CameraException {
+            /* Browser/front lenses can have no flash API. */
+          }
+          flashSupported = false;
+        }
+        if (!_current(generation)) {
+          await candidate.dispose();
+          return;
+        }
+        setState(() {
+          _controller = candidate;
+          _selected = selected;
+          _flash = appliedFlash;
+          _flashSupported = flashSupported;
+          _changing = false;
+        });
+      } catch (error) {
+        await candidate?.dispose();
+        if (!_current(generation)) return;
+        setState(() => _changing = false);
+        final permissionDenied = error is CameraException &&
+            (error.code.startsWith('CameraAccessDenied') ||
+                error.code == 'CameraAccessRestricted');
+        if (permissionDenied) unawaited(_showPermissionDialog());
       }
-      final back = cams.firstWhere(
-        (c) => c.lensDirection == CameraLensDirection.back,
-        orElse: () => cams.first,
-      );
-      final c = CameraController(back, ResolutionPreset.high, enableAudio: false);
-      await c.initialize();
-      if (!mounted) return;
-      setState(() => _controller = c);
-    } on CameraException catch (e) {
-      if (!mounted) return;
-      setState(() => _error = e.code == 'CameraAccessDenied'
-          ? '카메라 권한이 필요해요. 설정에서 허용해주세요.'
-          : '카메라를 열지 못했어요 (${e.code})');
-    }
+    });
+    return _cameraTask;
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final c = _controller;
-    if (c == null || !c.value.isInitialized) return;
-    if (state == AppLifecycleState.inactive) {
-      c.dispose();
-      _controller = null;
-    } else if (state == AppLifecycleState.resumed) {
-      _init();
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      _active = false;
+      ++_generation;
+      final controller = _controller;
+      setState(() {
+        _controller = null;
+        _busy = false;
+        _countdown = 0;
+      });
+      _cameraTask = _cameraTask.then((_) async {
+        await controller?.dispose();
+      });
+    } else if (state == AppLifecycleState.resumed && !_active) {
+      _active = true;
+      _openCamera(_selected);
     }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _controller?.dispose();
+    _active = false;
+    ++_generation;
+    final controller = _controller;
+    _cameraTask.then((_) async {
+      await controller?.dispose();
+    });
     super.dispose();
   }
 
-  Future<void> _shoot() async {
-    final c = _controller;
-    if (c == null || _busy) return;
+  Future<void> _showPermissionDialog() async {
+    if (!mounted || _permissionDialogOpen) return;
+    _permissionDialogOpen = true;
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierColor: MiCutColors.modalDim,
+        useSafeArea: false,
+        builder: (dialogContext) => MiCutDialog(
+          title: '권한 확인',
+          message: '카메라 권한을 확인해 주세요. 확인 클릭시 설정 화면으로 이동합니다.',
+          confirmLabel: '확인',
+          onConfirm: kIsWeb
+              ? null
+              : () async {
+                  final opened = await openAppSettings();
+                  if (opened && dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop();
+                  }
+                },
+        ),
+      );
+    } finally {
+      _permissionDialogOpen = false;
+    }
+  }
+
+  void _notice(String message) {
+    debugPrint(message);
+  }
+
+  Future<void> _setFlash(FlashMode next) async {
+    final controller = _controller;
+    if (controller == null || _busy || _changing) return;
+    final generation = _generation;
     setState(() => _busy = true);
     try {
-      for (var s = _timerSec; s > 0; s--) {
-        setState(() => _countdown = s);
+      await controller.setFlashMode(next);
+      if (_current(generation)) setState(() => _flash = next);
+    } on CameraException {
+      if (_current(generation)) _notice('이 카메라는 선택한 플래시 모드를 지원하지 않아요.');
+    } finally {
+      if (_current(generation)) setState(() => _busy = false);
+    }
+  }
+
+  CameraDescription? get _opposite {
+    final direction = _selected?.lensDirection == CameraLensDirection.front
+        ? CameraLensDirection.back
+        : CameraLensDirection.front;
+    for (final camera in _cameras) {
+      if (camera.lensDirection == direction) return camera;
+    }
+    // External webcams can expose multiple cameras without front/back metadata.
+    for (final camera in _cameras) {
+      if (camera.name != _selected?.name) return camera;
+    }
+    return null;
+  }
+
+  Future<void> _shoot() async {
+    final controller = _controller;
+    if (controller == null || _busy || _changing) return;
+    final generation = _generation;
+    final ratio = _ratio.value;
+    setState(() => _busy = true);
+    try {
+      for (var seconds = _timerSec; seconds > 0; seconds--) {
+        setState(() => _countdown = seconds);
         await Future<void>.delayed(const Duration(seconds: 1));
-        if (!mounted) return;
+        if (!_current(generation)) return;
       }
       setState(() => _countdown = 0);
-      final x = await c.takePicture();
-      if (!mounted) return;
-      context.push(Routes.captureConfirm, extra: File(x.path));
-    } on CameraException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('촬영 실패 (${e.code})')));
+      final original = await controller.takePicture();
+      final originalBytes = await original.readAsBytes();
+      final draft =
+          await compute(prepareCaptureRequest, (originalBytes, ratio));
+      if (!mounted || !_current(generation)) return;
+      await context.push(Routes.captureConfirm, extra: draft);
+    } catch (_) {
+      if (_current(generation)) _notice('사진을 촬영하지 못했어요. 다시 시도해 주세요.');
+    } finally {
+      if (_current(generation)) {
+        setState(() {
+          _busy = false;
+          _countdown = 0;
+        });
       }
+    }
+  }
+
+  Future<void> _pickFromAlbum() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final photo = await ImagePicker().pickImage(source: ImageSource.gallery);
+      if (photo == null || !mounted) return;
+      final draft = await compute(
+          prepareCaptureRequest, (await photo.readAsBytes(), null));
+      if (!mounted) return;
+      await context.push(Routes.captureConfirm, extra: draft);
+    } catch (_) {
+      _notice('앨범을 열지 못했어요. 권한을 확인해 주세요.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
-  Future<void> _pickFromAlbum() async {
-    final x = await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (x == null || !mounted) return;
-    context.push(Routes.captureConfirm, extra: File(x.path));
-  }
-
-  void _cycleTimer() =>
-      setState(() => _timerSec = switch (_timerSec) { 0 => 3, 3 => 10, _ => 0 });
-
   @override
   Widget build(BuildContext context) {
-    final c = _controller;
-    final ready = c != null && c.value.isInitialized;
-
+    final controller = _controller;
+    final ready = controller != null && controller.value.isInitialized;
+    final enabled = !_busy && !_changing;
+    final flashLabel = switch (_flash) {
+      FlashMode.auto => '자동',
+      FlashMode.always => '켜기',
+      _ => '끄기'
+    };
     return DarkWorld(
-      child: Scaffold(
-        backgroundColor: MiCutColors.black,
-        body: Stack(
-          fit: StackFit.expand,
-          children: [
-            // 프리뷰
-            if (ready)
-              Center(child: CameraPreview(c))
-            else
-              Center(
-                child: _error == null
-                    ? const CircularProgressIndicator()
-                    : Padding(
-                        padding: const EdgeInsets.all(Spacing.xl),
-                        child: Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: MiCutText.body.copyWith(color: MiCutColors.darkText),
+        child: Scaffold(
+      backgroundColor: MiCutColors.black,
+      body: SafeArea(
+          child: Column(children: [
+        SizedBox(
+            height: 45,
+            child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
+                child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                          tooltip: '닫기',
+                          alignment: Alignment.center,
+                          padding: EdgeInsets.zero,
+                          icon: const MiCutIcon(Icons.close),
+                          onPressed: () => context.pop()),
+                      IconButton(
+                          tooltip: '촬영 안내',
+                          alignment: Alignment.center,
+                          padding: EdgeInsets.zero,
+                          icon: const MiCutIcon(Icons.help_outline),
+                          onPressed: () => context.push(Routes.captureGuide)),
+                    ]))),
+        Expanded(child: LayoutBuilder(builder: (context, constraints) {
+          final width = (constraints.maxHeight * _ratio.value)
+              .clamp(0.0, constraints.maxWidth);
+          return Center(
+              child: SizedBox(
+                  width: width,
+                  height: width / _ratio.value,
+                  child: Stack(fit: StackFit.expand, children: [
+                    if (ready)
+                      ClipRect(
+                          child: FittedBox(
+                              fit: BoxFit.cover, child: _preview(controller)))
+                    else
+                      ColoredBox(
+                          color: MiCutColors.darkSurface,
+                          child: Center(
+                              child: _changing
+                                  ? const CircularProgressIndicator()
+                                  : const SizedBox.shrink())),
+                    Positioned.fill(
+                      child: CaptureOptionsRail(groups: [
+                        CaptureOptionGroup(
+                          id: 'flash',
+                          tooltip: '플래시 $flashLabel',
+                          selectedIndex: [
+                            FlashMode.off,
+                            FlashMode.always,
+                            FlashMode.auto
+                          ].indexOf(_flash),
+                          enabled: ready && enabled && _flashSupported,
+                          options: const [
+                            CaptureOption(asset: 'flash-off', label: '플래시 끄기'),
+                            CaptureOption(asset: 'flash-on', label: '플래시 켜기'),
+                            CaptureOption(asset: 'flash-auto', label: '플래시 자동'),
+                          ],
+                          onSelected: (i) => _setFlash([
+                            FlashMode.off,
+                            FlashMode.always,
+                            FlashMode.auto
+                          ][i]),
                         ),
-                      ),
-              ),
-
-            // 뷰파인더 코너 HUD (로고 페이지 "HUD / 2 Viewfinder Corners")
-            if (ready)
-              const IgnorePointer(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(Spacing.lg, 96, Spacing.lg, 230),
-                  child: HudCorners(length: 28, thickness: 2),
-                ),
-              ),
-
-            // 타이머 카운트다운
-            if (_countdown > 0)
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('$_countdown',
-                        style: MiCutText.display.copyWith(
-                          color: MiCutColors.hud,
-                          fontSize: 88,
-                          shadows: const [Shadow(color: MiCutColors.hud, blurRadius: 24)],
-                        )),
-                    Text('T-MINUS', style: MiCutText.hud),
-                  ],
-                ),
-              ),
-
-            SafeArea(
-              child: Column(
-                children: [
-                  // 상단 바
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () => context.pop(),
+                        CaptureOptionGroup(
+                          id: 'timer',
+                          tooltip:
+                              _timerSec == 0 ? '타이머 끄기' : '타이머 $_timerSec초',
+                          selectedIndex: [0, 3, 5, 7].indexOf(_timerSec),
+                          enabled: enabled,
+                          options: const [
+                            CaptureOption(asset: 'timer-0', label: '타이머 끄기'),
+                            CaptureOption(asset: 'timer-3', label: '타이머 3초'),
+                            CaptureOption(asset: 'timer-5', label: '타이머 5초'),
+                            CaptureOption(asset: 'timer-7', label: '타이머 7초'),
+                          ],
+                          onSelected: (i) =>
+                              setState(() => _timerSec = [0, 3, 5, 7][i]),
                         ),
-                        const HudStatus(text: 'REC', blinking: true),
-                        IconButton(
-                          icon: const Icon(Icons.help_outline),
-                          onPressed: () => context.push(Routes.captureGuide),
+                        CaptureOptionGroup(
+                          id: 'ratio',
+                          edgePadding: 4,
+                          tooltip: '사진 비율 ${_ratio.label}',
+                          selectedIndex: _ratio.index,
+                          enabled: enabled,
+                          options: [
+                            for (final ratio in CaptureRatio.values)
+                              CaptureOption(
+                                  asset: 'ratio-${ratio.name}',
+                                  label: '사진 비율 ${ratio.label}')
+                          ],
+                          onSelected: (i) =>
+                              setState(() => _ratio = CaptureRatio.values[i]),
                         ),
-                      ],
+                      ]),
                     ),
-                  ),
-                  const Spacer(),
+                    if (_countdown > 0)
+                      Center(
+                          child: Text('$_countdown',
+                              style: MiCutText.display
+                                  .copyWith(color: MiCutColors.textInverse))),
+                  ])));
+        })),
+        SizedBox(
+            height: 146,
+            child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: Spacing.screenH, vertical: 26),
+                child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                          tooltip: '앨범',
+                          icon: const MiCutIcon(Icons.photo_outlined),
+                          onPressed: _busy ? null : _pickFromAlbum),
+                      _Shutter(enabled: ready && enabled, onTap: _shoot),
+                      IconButton(
+                          tooltip: '전후면 카메라 전환',
+                          icon: const MiCutIcon(Icons.cameraswitch_outlined),
+                          onPressed: ready && enabled && _opposite != null
+                              ? () => _openCamera(_opposite)
+                              : null),
+                    ]))),
+      ])),
+    ));
+  }
 
-                  // 안내 바: 시안 면 + 검정 글자 (브랜드 조합, 대비 ≥ 15)
-                  Container(
-                    width: double.infinity,
-                    color: MiCutColors.hud,
-                    padding: const EdgeInsets.symmetric(vertical: Spacing.md),
-                    child: Text(
-                      CaptureGuideScreen.guideText,
-                      textAlign: TextAlign.center,
-                      style: MiCutText.bodyBold.copyWith(color: MiCutColors.ink),
-                    ),
-                  ),
-
-                  // 컨트롤 영역
-                  Container(
-                    height: 170,
-                    color: MiCutColors.ink,
-                    padding: const EdgeInsets.symmetric(horizontal: 42),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _Side(
-                          label: _timerSec == 0 ? '타이머' : '${_timerSec}s',
-                          icon: Icons.timer_outlined,
-                          active: _timerSec != 0,
-                          onTap: _cycleTimer,
-                        ),
-                        _Shutter(enabled: ready && !_busy, onTap: _shoot),
-                        _Side(
-                          label: '앨범',
-                          icon: Icons.photo_outlined,
-                          onTap: _pickFromAlbum,
-                          square: true,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  Widget _preview(CameraController controller) {
+    final value = controller.value;
+    final orientation =
+        value.lockedCaptureOrientation ?? value.deviceOrientation;
+    final landscape = orientation == DeviceOrientation.landscapeLeft ||
+        orientation == DeviceOrientation.landscapeRight;
+    final size = value.previewSize!;
+    return SizedBox(
+        width: landscape ? size.width : size.height,
+        height: landscape ? size.height : size.width,
+        child: CameraPreview(controller));
   }
 }
 
@@ -241,79 +434,20 @@ class _Shutter extends StatelessWidget {
   const _Shutter({required this.enabled, required this.onTap});
   final bool enabled;
   final VoidCallback onTap;
-
   @override
-  Widget build(BuildContext context) {
-    return Semantics(
+  Widget build(BuildContext context) => Semantics(
       button: true,
+      enabled: enabled,
       label: '촬영',
-      child: GestureDetector(
-        onTap: enabled ? onTap : null,
-        child: AnimatedOpacity(
-          opacity: enabled ? 1 : 0.4,
-          duration: const Duration(milliseconds: 150),
-          child: Container(
-            width: Spacing.shutter,
-            height: Spacing.shutter,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: MiCutColors.white,
-              boxShadow: MiCutShadows.glowHud,
-            ),
-            child: Center(
-              child: Container(
-                width: Spacing.shutter - 12,
-                height: Spacing.shutter - 12,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: MiCutColors.hud, width: 3),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Side extends StatelessWidget {
-  const _Side({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-    this.square = false,
-    this.active = false,
-  });
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool square;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    final fg = active ? MiCutColors.ink : MiCutColors.hud;
-    final bg = active ? MiCutColors.hud : MiCutColors.darkSurfaceHi;
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: bg,
-              shape: square ? BoxShape.rectangle : BoxShape.circle,
-              borderRadius: square ? BorderRadius.circular(Spacing.radiusSm) : null,
-            ),
-            child: Icon(icon, color: fg, size: 20),
-          ),
-          const SizedBox(height: Spacing.xs),
-          Text(label, style: MiCutText.label.copyWith(color: MiCutColors.darkTextDim)),
-        ],
-      ),
-    );
-  }
+      child: SizedBox(
+          width: Spacing.shutter,
+          height: Spacing.shutter,
+          child: Material(
+              color: enabled ? MiCutColors.white : MiCutColors.gray400,
+              shape: const CircleBorder(
+                  side: BorderSide(color: MiCutColors.cyan300, width: 4)),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: enabled ? onTap : null))));
 }

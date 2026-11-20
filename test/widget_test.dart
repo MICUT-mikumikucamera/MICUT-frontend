@@ -30,7 +30,7 @@ void main() {
         ),
       ),
     );
-    expect(find.text('미수집'), findsOneWidget);
+    expect(find.text('미수집'), findsNothing);
     expect(find.text('#004'), findsOneWidget);
   });
 }

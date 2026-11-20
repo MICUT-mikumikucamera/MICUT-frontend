@@ -1,33 +1,21 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
-/// MiCut 컬러 토큰.
-///
-/// 출처: Figma 〈미컷〉 로고 페이지 + 무드보드 컬러칩 (GDG KU 미컷).
-/// 두 개의 세계로 나뉜다:
-///  - **라이트 월드** (홈·갤러리·컬렉션·결과·설정): 흰 배경 + Tailwind Cyan 스케일이 Primary, Pink가 포인트
-///  - **다크 월드** (촬영 가이드·카메라·처리 중·스플래시): 로고와 같은 순흑 + 일렉트릭 시안(#00FAFC)
-///
-/// 대비 메모 (WCAG AA 4.5:1 기준, 직접 계산):
-///  - ink on cyan400  = 5.9  ✅  → Primary 버튼은 "시안 배경 + 검정 글자"
-///  - white on cyan400 = 2.4 ❌  → 시안 위에 흰 글자 금지
-///  - cyan500 on cyan50 = 4.7 ✅ → Secondary 버튼
-///  - white on pink400 = 4.6 ✅  → 삭제/위험 버튼
-///  - brandCyan on ink = 15+ ✅   → 다크 월드 강조
+/// Neutral values are verified against docs/design-system.md.
+/// Used brand fills are verified from the 2026-11-06 browser-exported .fig.
 abstract final class MiCutColors {
-  // ── 로고 원색 (다크 월드·아이콘·스플래시 전용. 라이트 UI 버튼에는 쓰지 않는다) ──
-  static const brandCyan = Color(0xFF00FAFC); // 로고 미쿠 실루엣·앱 아이콘 배경
-  static const brandPink = Color(0xFFE4007F); // 반전 로고 워드마크
-  static const ink = Color(0xFF0B0B0B); // 로고 배경·아이콘 M
-
-  // ── Primary: Cyan (무드보드 칩 100→700) ──
+  // Existing logo asset colors; not aliases for the unverified brand palette.
+  static const brandCyan = Color(0xFF00FAFC);
+  static const brandPink = Color(0xFFE4007F);
+  static const ink = gray950;
+  // Legacy alias names are retained for compatibility; their numeric suffixes
+  // are not the source primary/secondary variable step numbers.
   static const cyan50 = Color(0xFFCFFAFE);
   static const cyan100 = Color(0xFFA5F3FC);
   static const cyan200 = Color(0xFF67E8F9);
   static const cyan300 = Color(0xFF22D3EE);
   static const cyan400 = Color(0xFF06B6D4);
   static const cyan500 = Color(0xFF0E7490);
-
-  // ── Secondary: Pink (무드보드 칩 100→700) ──
   static const pink50 = Color(0xFFFCE7F3);
   static const pink100 = Color(0xFFF9A8D4);
   static const pink200 = Color(0xFFF472B6);
@@ -35,72 +23,111 @@ abstract final class MiCutColors {
   static const pink400 = Color(0xFFDB2777);
   static const pink500 = Color(0xFFBE185D);
 
-  // ── Neutral ──
-  static const white = Color(0xFFFFFFFF);
+  static const gray0 = Color(0xFFFEFEFE);
+  static const gray100 = Color(0xFFF4F4F5);
+  static const gray200 = Color(0xFFE4E4E7);
+  static const gray300 = Color(0xFFD4D4D8);
+  static const gray400 = Color(0xFFA1A1AA);
+  static const gray500 = Color(0xFF71717A);
+  static const gray600 = Color(0xFF52525B);
+  static const gray700 = Color(0xFF3F3F46);
+  static const gray950 = Color(0xFF09090B);
+  // Unspecified legacy gray steps remain provisional.
+  static const gray50 = Color(0xFFFAFAFA);
+  static const gray800 = Color(0xFF27272A);
+  static const white = gray0;
   static const black = Color(0xFF000000);
-  static const gray50 = Color(0xFFF7F8F9);
-  static const gray100 = Color(0xFFE8EBED);
-  static const gray200 = Color(0xFFD0D4D9);
-  static const gray400 = Color(0xFF9AA0A6);
-  static const gray600 = Color(0xFF5F6368);
-  static const gray800 = Color(0xFF26282B);
 
-  // ── 라이트 월드 시맨틱 ──
-  static const primary = cyan400;
+  static const bgDefault = gray0;
+  static const bgSubtle = gray100;
+  static const bgInverse = gray950;
+  static const bgDisabled = gray200;
+  static const bgPlaceholder = gray600;
+  static const textDefault = gray950;
+  static const textSubtle = gray500;
+  static const textInverse = gray0;
+  static const textDisabled = gray400;
+  static const iconDefault = gray950;
+  static const iconSubtle = gray300;
+  static const iconInverse = gray0;
+  static const iconDisabled = gray400;
+  static const iconSelected = gray950;
+  static const borderDefault = gray500;
+  static const borderSubtle = gray200;
+  static const borderBolder = gray700;
+  static const borderDisabled = gray400;
+
+  static const primary = cyan200;
   static const primaryStrong = cyan500;
   static const primarySoft = cyan50;
-  static const onPrimary = ink;
+  static const onPrimary = textDefault;
   static const secondary = pink300;
   static const secondaryStrong = pink400;
   static const secondarySoft = pink50;
   static const onSecondarySoft = pink500;
-  static const danger = pink400;
+  // Figma color/bg/danger/default → red/500.
+  static const success = Color(0xFF22C55E);
+  static const danger = Color(0xFFEF4444);
+  static const borderDanger = Color(0xFF991B1B);
+  static const bgDangerDefault = danger;
+  static const onDanger = textInverse;
 
-  static const background = white;
-  static const surface = gray50;
+  static const background = bgDefault;
+  static const surface = bgSubtle;
   static const surfaceTint = cyan50;
-  static const border = gray100;
+  static const border = borderSubtle;
   static const borderTint = cyan100;
-  static const textPrimary = gray800;
-  static const textSecondary = gray600;
-  static const textHint = gray400;
-  static const placeholder = cyan50;
-  static const onPlaceholder = cyan500;
+  static const textPrimary = textDefault;
+  static const textSecondary = textSubtle;
+  static const textHint = textDisabled;
+  static const placeholder = bgPlaceholder;
+  static const onPlaceholder = textInverse;
+  static const modalDim = Color(0x802D2D2D);
   static const dim = Color(0x80000000);
 
-  // ── 다크 월드 시맨틱 ──
-  static const darkBg = ink;
-  static const darkSurface = Color(0xFF161718);
-  static const darkSurfaceHi = Color(0xFF26282B);
-  static const darkText = white;
-  static const darkTextDim = Color(0xB3FFFFFF); // 70%
+  static const darkBg = bgInverse;
+  static const darkSurface = Color(0xFF262626);
+  // Guide source #3D3D3D beneath its 35% black dim layer.
+  static const savedNotice = Color(0xE6212121);
+  static const guideBackground = Color(0xFF282828);
+  static const darkSurfaceHi = gray700;
+  static const darkText = textInverse;
+  static const darkTextDim = gray300;
+  // Compatibility for unused legacy HUD widgets.
   static const hud = brandCyan;
-  static const hudDim = Color(0x9900FAFC); // 60%
-  static const hudFaint = Color(0x3300FAFC); // 20%
+  static const hudDim = Color(0x9900FAFC);
+  static const hudFaint = Color(0x3300FAFC);
 }
 
-/// 무드보드의 "민트 계열 그라데이션".
+/// Endpoints read from exported CTA and TabBar nodes.
 abstract final class MiCutGradients {
-  /// 홈 히어로 타일. 위에 올리는 글자는 ink.
-  static const mint = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [MiCutColors.cyan100, MiCutColors.cyan300],
+  static const primary = _FigmaPrimaryGradient();
+  static const capture = RadialGradient(
+    colors: [MiCutColors.cyan300, MiCutColors.cyan50],
   );
-
-  /// 진행 바·강조 선.
+  // Figma collection background node206:8678 extends below the frame.
+  static const collection = LinearGradient(
+    begin: Alignment(0, .23),
+    end: Alignment(0, 1.58),
+    colors: [MiCutColors.bgInverse, MiCutColors.primary],
+  );
+  static const storyTop = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [Color(0xB3000000), Color(0x00000000)]);
+  static const storyBottom = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [Color(0x00000000), Color(0xCC000000)]);
+  static const mint = primary;
   static const cyanDeep = LinearGradient(
     colors: [MiCutColors.cyan300, MiCutColors.cyan500],
   );
-
-  /// 컬렉션 타일 등 핑크 포인트 면.
   static const blush = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [MiCutColors.pink50, Color(0xFFFBD0E8)],
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    colors: [MiCutColors.pink300, MiCutColors.pink200],
   );
-
-  /// 다크 월드 상단/하단 비네팅.
   static const darkFade = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
@@ -108,15 +135,26 @@ abstract final class MiCutGradients {
   );
 }
 
-/// 그림자 토큰.
+/// Compatibility only. The current design does not add decorative glow.
 abstract final class MiCutShadows {
-  static const glowCyan = [
-    BoxShadow(color: Color(0x6622D3EE), blurRadius: 18, offset: Offset(0, 6)),
-  ];
-  static const glowHud = [
-    BoxShadow(color: Color(0x8000FAFC), blurRadius: 24),
-  ];
-  static const card = [
-    BoxShadow(color: Color(0x14000000), blurRadius: 16, offset: Offset(0, 6)),
-  ];
+  static const List<BoxShadow> glowCyan = [];
+  static const List<BoxShadow> glowHud = [];
+  static const List<BoxShadow> card = [];
+}
+
+/// Linked fill style 213:9266, including its affine gradient coordinates.
+/// Instance paint caches contain older endpoints; the linked style matches PDF.
+class _FigmaPrimaryGradient extends LinearGradient {
+  const _FigmaPrimaryGradient()
+      : super(colors: const [MiCutColors.cyan200, MiCutColors.cyan50]);
+  @override
+  Shader createShader(Rect rect, {TextDirection? textDirection}) {
+    final gx = .8273298740386963 / rect.width;
+    final gy = .30039188265800476 / rect.height;
+    final norm = gx * gx + gy * gy;
+    const c = -.09662528336048126;
+    final start = rect.topLeft + Offset(-c * gx / norm, -c * gy / norm);
+    final end = start + Offset(gx / norm, gy / norm);
+    return ui.Gradient.linear(start, end, colors);
+  }
 }

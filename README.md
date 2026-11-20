@@ -1,56 +1,95 @@
 # MiCut Frontend
 
-장면을 이해해 미쿠를 자동 배치하는 카메라 앱의 Flutter 클라이언트.
+장면을 이해해 미쿠를 자동 배치하는 카메라 앱의 Flutter 클라이언트입니다.
 
-## 처음 받았을 때
+## 실행
 
 ```bash
-# 1. 플랫폼 폴더 생성 (android/ 등). lib/ 는 건드리지 않음
-flutter create . --platforms android --org com.micut --project-name micut
-
-# 2. 패키지 설치
 flutter pub get
-
-# 3. 실행 (폰 연결 또는 에뮬레이터)
+# Android / iOS: 기기 내 파일 저장소 사용
 flutter run
-
-# 레이아웃만 빠르게 볼 때 (카메라/저장은 동작 안 함)
-flutter run -d chrome
+# 브라우저 디자인 확인: 모의 합성 결과, 세션 내 저장
+flutter run -d chrome -t lib/browser_preview.dart
+# 실제 서버 연결 (백엔드의 원본 + crop 계약 적용 필요)
+flutter run --dart-define=MICUT_REAL_API=true --dart-define=MICUT_API_URL=https://your-api.example
 ```
 
-버전 충돌이 나면 `flutter pub upgrade --major-versions` 한 번 돌리면 됩니다.
+모바일 기본 실행은 FakeJobRepository를 사용합니다. 실제 서버는 `MICUT_REAL_API=true`로 선택합니다. 웹 진입점도 이 설정을 따르며, 설정을 생략하면 모의 결과를 사용합니다. 웹의 사진·메모는 세션 메모리에만 보관되므로 새로고침하면 초기화됩니다. 모의 결과는 실제 AI 합성이나 카드 획득을 의미하지 않습니다.
 
-### Android 권한
-`flutter create` 후 `android/app/src/main/AndroidManifest.xml` 의 `<manifest>` 바로 안에 추가:
+## 2차 디자인 반영 — Figma와 의도적으로 다르게 적용한 부분
 
-```xml
-<uses-permission android:name="android.permission.CAMERA" />
-<uses-permission android:name="android.permission.INTERNET" />
-<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
-```
+Figma 원본 아이콘·로고·장식 에셋을 사용하되, 아래 항목은 사용자 피드백에 따라 변경했습니다. 원본 화면을 그대로 복제한 결과로 보지 않습니다.
 
-`android/app/build.gradle(.kts)` 의 `minSdk` 는 24 이상.
+| 영역 | 구현한 차이 |
+| --- | --- |
+| 홈 헤더 | 로고와 설정 버튼을 카드 위 전체 69px 영역의 세로 중앙에 배치했습니다. 최종 눈대중 보정값은 로고 왼쪽 26.25px, 설정 버튼 오른쪽 16px입니다. 카드 좌우 여백은 20px입니다. |
+| 하단 바 | 홈·촬영·갤러리 글자를 제거하고 아이콘만 표시합니다. 세 아이콘을 동일한 너비의 영역 중앙에 배치하고, hover/pressed 회색 범위를 통일했습니다. 접근성 이름은 유지합니다. |
+| 촬영 상하단 | 닫기·도움말, 앨범·셔터·카메라 전환을 각각 세로 중앙에 정렬했습니다. 앨범 선택과 전후면 카메라 전환 기능을 유지합니다. |
+| 촬영 옵션 | 플래시·타이머·비율을 세로 아이콘 메뉴로 변경했습니다. 촬영 영역의 세로 중앙, 대표 아이콘과 같은 가로 좌표에 표시합니다. 선택 아이콘은 민트색입니다. |
+| 옵션 메뉴 모양 | 배경은 검정 60% 불투명도, 너비 40px, 캡슐 반지름 20px입니다. 아이콘은 24px, 행 높이는 40px입니다. 비율 아이콘은 둥근 배경 끝과의 시각적 간격을 보정하기 위해 메뉴 위아래에 4px씩 더 넣었습니다. |
+| 옵션 메뉴 움직임 | 열기: 나머지 아이콘 숨김 → 선택한 대표 아이콘 이동 → 목록 표시. 닫기: 목록 숨김 → 아이콘 복귀 → 나머지 아이콘 표시. 총 420ms이며 애니메이션 최소화 설정을 따릅니다. |
+| 사진 표시 | 가로·세로 중 가용 공간에 맞는 축으로 사진을 맞춰 표시합니다. 확인·처리·실패·결과 화면은 contain 방식으로 표시하여 레이아웃 때문에 사진이 추가로 잘리지 않습니다. 촬영 화면은 선택 비율의 전체 프레임이 보입니다. |
+| 컬렉션 | 고정 2열 대신 카드 너비가 200px를 넘게 되는 지점마다 열을 추가합니다. 카드 간격 15px, 비율 160:207, 원본의 기울기를 유지합니다. |
+| 기기 대응 | 디자인의 상태 표시줄을 그림으로 넣지 않고 실제 SafeArea를 적용합니다. 작은 화면과 확대 글꼴에서 동작하도록 레이아웃을 조정했습니다. |
 
-### 앱 아이콘 · 스플래시 (한 번만)
+홈 카드 배경은 PDF 추출 시 달라졌던 `lighter / LINEAR_DODGE` 효과를 원본 레이어의 그라데이션·이미지·불투명도로 재합성했습니다. 이는 의도적인 색상 변경이 아니라 원본 효과를 반영하기 위한 수정입니다.
+
+## 원본 사진 + 크롭 좌표 전송
+
+크롭된 이미지 대신 전체 화각의 방향 정규화 JPEG를 전송합니다. 크롭·축소하지 않지만 EXIF 회전/반사 적용과 JPEG 재인코딩은 수행합니다.
+
+`POST /api/v1/jobs`는 multipart의 `photo`, `w`, `h`, `rotation`, 선택적 `fx`, JSON 문자열 `crop`을 받는 계약입니다. `crop`은 방향 정규화된 원본 좌표계의 정수 `x`, `y`, `width`, `height`입니다. 서버는 전체 이미지로 depth를 분석하고 최종 출력에 해당 영역을 적용해야 합니다.
+
+- [백엔드 전달용 상세 변경사항](./docs/명세%20변경%20사항.md)
+- [프런트 계약 및 좌표 기준](./docs/capture-original-contract.md)
+
+프런트 구현은 완료했지만 실제 백엔드 계약 적용·기기 연동은 별도 확인이 필요합니다. 구서버가 `crop`을 무시해도 정상 동작한다고 가정하지 않습니다.
+
+## 검증 및 빌드
+
 ```bash
-dart run flutter_launcher_icons        # 시안 배경 + 검정 M (Figma "MiCut Icon M")
-dart run flutter_native_splash:create  # 순흑 배경 + 시안 워드마크
-```
-
-## 디자인
-토큰은 `lib/core/theme/`, 적용 근거와 화면별 결정은 [docs/design-notes.md](./docs/design-notes.md).
-라이트 월드(흰 배경 + Cyan/Pink)와 다크 월드(순흑 + #00FAFC) 두 테마가 있고, 카메라 흐름은 `DarkWorld`로 감쌉니다.
-
-## 구조와 규칙
-[CLAUDE.md](./CLAUDE.md) 참고. AI에게 작업을 시킬 때도 이 파일이 지침입니다.
-
-## 서버 연결
-기본은 `FakeJobRepository` (서버 없이 동작). 백엔드가 올라오면
-`lib/data/jobs/providers.dart` 에서 `ApiJobRepository` 로 바꾸고 `baseUrl` 을 넣으면 됩니다.
-
-## APK
-```bash
+flutter analyze
+flutter test
+flutter build web -t lib/browser_preview.dart --no-wasm-dry-run
 flutter build apk --release
-# build/app/outputs/flutter-apk/app-release.apk
 ```
+
+브라우저 화면 확인은 사용자가 담당하고, 자동 테스트와 웹 빌드를 기준으로 검증했습니다. 카메라·사진첩 권한 등 실제 기기 동작은 별도 검증 대상입니다. GitHub Pages는 기존 main 배포 워크플로를 유지하며 웹 진입점과 현재 API 설정 이름을 사용합니다.
+
+## 코드 및 디자인 기준
+
+- `lib/core/theme/`: 색상·간격·글꼴 토큰
+- `lib/core/widgets/`: 공통 UI
+- `lib/features/`: 화면별 구현
+- `lib/data/`: 서버 job 및 로컬 저장소
+- [디자인 기준](./docs/design-system.md), [최종 조정 기록](./DESIGN.md), [검증 기록](./docs/verification.md)
+
+Figma 원본 아이콘·그래픽과 Pretendard/DungGeunMo 글꼴은 로컬 에셋으로 포함합니다. 서버 결과 사진과 컬렉션 획득 상태는 데이터에 따라 표시합니다.
+
+## 2026-11-18 Figma 갱신
+
+2026-11-06 저장본과 2026-11-18 브라우저 원본 export를 비교했습니다. 근거는 `../figma-source/review-2026-11-18/`에 있습니다.
+
+- 로그인 밝음/어두움, 닉네임 빈 값/유효/오류, 약관 미동의/동의, 세션 만료 화면을 추가했습니다.
+- 홈 캐릭터와 로고, 촬영 가이드·빈 갤러리 일러스트, 처리 중 캐릭터 모션, 신규 컬렉션 등장 모션과 3초 닫힘을 반영했습니다. 실제 처리 완료는 서버 job 상태를 따릅니다.
+- 닉네임은 사용자 요청에 따라 2~20자입니다. 보이는 글자 단위로 세며 공백·이모지를 제한하고, 조합 입력 중에는 다음 단계로 넘어가지 않습니다.
+- 기존 사용자 지정 헤더 위치, 아이콘 전용 하단 바, 촬영 메뉴·사진 전체 표시·반응형 컬렉션은 유지합니다.
+
+일반 실행의 시작 화면은 기존 홈입니다. 신규 인증 화면 흐름만 확인하려면 아래처럼 별도 UI 미리보기를 실행합니다. 미리보기는 실제 로그인·회원가입이나 세션 저장을 수행하지 않습니다.
+
+```bash
+flutter create . --platforms web --no-pub
+flutter run -d chrome -t lib/browser_preview.dart --dart-define=MICUT_AUTH_PREVIEW=true
+```
+
+실제 Google 로그인 연결에는 OAuth 설정과 인증·회원가입·프로필·세션 API 계약이 필요합니다. `AuthGateway` 구현을 연결해야 하며 현재 기본값은 미연결입니다. 이용약관과 개인정보 처리방침 HTTPS URL은 `MICUT_TERMS_URL`, `MICUT_PRIVACY_URL`로 전달합니다. URL이 없으면 전체보기는 비활성화됩니다. 실제 인증 연결 없이 성공한 것으로 처리하지 않습니다.
+
+### 인증 디자인만 확인하기
+
+2026-11-19부터 `lib/browser_preview.dart`는 실제 API를 사용하지 않을 때 기본적으로 로그인 디자인부터 시작합니다. Google 버튼 → 닉네임(2~20자) → 약관 → 홈 순서로 확인할 수 있습니다. 약관의 전체보기는 본문 준비 중인 디자인 화면을 표시하며, 실제 인증·가입·동의 저장은 수행하지 않습니다. 기존 홈부터 보려면 `--dart-define=MICUT_AUTH_PREVIEW=false`를 사용하세요. 실제 API 모드에서는 별도 지정 없이 인증 미리보기를 켜지 않습니다.
+
+로그인 첫 화면의 어두운/밝은 디자인은 기기의 다크모드/라이트모드를 따릅니다. 자동으로 밝아지는 연출은 제거했으며, 실행 중 시스템 모드를 바꾸면 로그인 화면도 반영합니다. 웹에서는 브라우저가 전달하는 시스템 색상 모드를 사용합니다.
+
+### 로그인 화면 모드
+
+설정 → 화면 모드에서 기기 설정 따르기·라이트 모드·다크 모드를 선택합니다. 사용자 요청에 따라 로그인 화면에만 적용합니다. 선택은 앱 지원 폴더(모바일) 또는 브라우저 저장소(웹)에 저장되어 다음 실행에도 유지됩니다. 기본값은 기기 설정 따르기이며, 나머지 화면의 색상은 기존 디자인을 유지합니다.
